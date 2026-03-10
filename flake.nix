@@ -22,6 +22,8 @@
           packages = with pkgs; [
             gcc15
             cmake
+            clang-tools
+            ninja
           ];
         };
       }
