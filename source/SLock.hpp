@@ -1,0 +1,38 @@
+#pragma once
+#include "Lock.hpp"
+#include "common.hpp"
+#include <cassert>
+#include <flat_set>
+
+class SLock : public Lock {
+
+private:
+  std::flat_set<TID> lock_holders_; // likely to be small
+
+public:
+  SLock() = default;
+
+  virtual bool acquire(const TID &tid, LockMode mode) override {
+    assert(mode == LockMode::SHARED);
+    // Add tid to lock_holders_ if it's not already present.
+    if (!is_held_by(tid)) {
+      lock_holders_.insert(tid);
+    }
+    return true;
+  }
+
+  virtual void release(const TID &tid) override {
+    // Remove tid from lock_holders_.
+    assert(is_held_by(tid));
+    lock_holders_.erase(tid);
+  }
+
+  bool is_held_by(const TID &tid) const {
+    return lock_holders_.find(tid) != lock_holders_.end();
+  }
+
+  bool is_not_held() const { return lock_holders_.empty(); }
+  size_t holder_count() const { return lock_holders_.size(); }
+
+  virtual ~SLock() override = default;
+};

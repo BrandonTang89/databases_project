@@ -22,7 +22,7 @@ add_compile_options(
     -Wformat=2
 )
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 if(NOT CMAKE_BUILD_TYPE)

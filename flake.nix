@@ -42,7 +42,28 @@
                   ;;
               esac
 
-              cmake --build --preset "$preset"
+              find_project_root() {
+                dir="$PWD"
+
+                while [ "$dir" != "/" ]; do
+                  if [ -f "$dir/flake.nix" ] && [ -f "$dir/CMakePresets.json" ]; then
+                    printf '%s\n' "$dir"
+                    return 0
+                  fi
+
+                  dir=$(dirname "$dir")
+                done
+
+                echo "Could not locate project root from $PWD" >&2
+                return 1
+              }
+
+              project_root=$(find_project_root)
+
+              (
+                cd "$project_root"
+                cmake --build --preset "$preset"
+              )
             '')
             (writeShellScriptBin "run" ''
               set -eu
@@ -62,12 +83,38 @@
                   ;;
               esac
 
-              cmake --build --preset "$preset"
+              find_project_root() {
+                dir="$PWD"
 
-              binary="build/$preset/databases_project"
+                while [ "$dir" != "/" ]; do
+                  if [ -f "$dir/flake.nix" ] && [ -f "$dir/CMakePresets.json" ]; then
+                    printf '%s\n' "$dir"
+                    return 0
+                  fi
 
-              if [ ! -x "$binary" ]; then
-                echo "Could not find executable at build/$preset/databases_project or $preset/databases_project" >&2
+                  dir=$(dirname "$dir")
+                done
+
+                echo "Could not locate project root from $PWD" >&2
+                return 1
+              }
+
+              project_root=$(find_project_root)
+
+              (
+                cd "$project_root"
+                cmake --build --preset "$preset"
+              )
+
+              binary_in_preset_dir="$project_root/$preset/databases_project"
+              binary_in_build_subdir="$project_root/build/$preset/databases_project"
+
+              if [ -x "$binary_in_preset_dir" ]; then
+                binary="$binary_in_preset_dir"
+              elif [ -x "$binary_in_build_subdir" ]; then
+                binary="$binary_in_build_subdir"
+              else
+                echo "Could not find executable at $binary_in_preset_dir or $binary_in_build_subdir" >&2
                 exit 1
               fi
 
