@@ -58,6 +58,12 @@ bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
   assert(false);
 }
 
+DataTuple *Relation::get_tuple(int left, int right) {
+  ensure_tuple(left, right);
+  Group group = leftToRightIndex[left];
+  return group.find(left, right);
+}
+
 DataTuple *Relation::ensure_tuple(int left, int right) {
   Group group = leftToRightIndex[left];
   DataTuple *tp = group.find(left, right);
@@ -66,6 +72,9 @@ DataTuple *Relation::ensure_tuple(int left, int right) {
     tp = tuples.emplace(left, right);
     leftToRightIndex[left].insert(tp);
     rightToLeftIndex[right].insert(tp);
+    if (left == right) {
+      diagonalIndex.push_back(tp);
+    }
     return tp;
   } else {
     return tp;

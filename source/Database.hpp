@@ -44,5 +44,7 @@ public:
   // deleted tuples and returns true.
   bool delete_data(const TID &tid, const RelName &rel_name,
                    const std::string &csv_file);
-  bool query(const TID &tid, std::span<const QueryAtom> body);
+
+  // Returns false if the transaction does not exist
+  bool query(const TID &tid, std::vector<QueryAtom> body);
 };

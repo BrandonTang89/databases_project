@@ -9,6 +9,7 @@ struct Group {
   std::flat_set<DataTuple *> tuples;
   SLock lock;
 
+  // Find the alive tuples with given left and right values
   DataTuple* find(int left, int right) {
     for (DataTuple *tp : tuples) {
       if (tp->alive && tp->left == left && tp->right == right)

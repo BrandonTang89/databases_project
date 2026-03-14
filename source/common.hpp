@@ -61,3 +61,8 @@ void todo(std::format_string<Args...> fmt, Args &&...args) {
   std::cerr << "[TODO] ";
   std::println(std::cerr, fmt, std::forward<Args>(args)...);
 }
+
+// for visiting variants
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};

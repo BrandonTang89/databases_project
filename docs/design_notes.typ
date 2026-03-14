@@ -119,4 +119,10 @@ For each R(s, t) in the query:
           - W' = W' U ({w} times R.rightToLeftIndex(w.y))
       - else
         - W' = W x R
+  - (x, x)
+    - acquire an S lock on the diagonal lock for R
+    - if x in S
+      - W' = W.filter(w -> (w.x, w.x) in R) acquiring tuple locks on R(w.x, w.x)
+    - else
+      - W' = W x R.diagonalIndex
 ```

@@ -3,7 +3,6 @@
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
-#include <iostream>
 #include <print>
 #include <string>
 #include <unordered_map>
@@ -14,7 +13,7 @@ bool Database::begin_transaction(const TID &tid) {
     std::println(out, "ERROR: transaction {} already exists.", tid);
     return false; // Transaction with this TID already exists
   }
-  transactions.emplace(tid, Transaction(out, tid));
+  transactions.emplace(tid, Transaction(out, tid, relations));
   std::println(out, "Transaction {} was created.", tid);
   return true;
 }
@@ -56,7 +55,7 @@ bool Database::add_data(const TID &tid, const RelName &rel_name,
   }
 
   Relation &rel = relations[rel_name]; // also creates if doesn't exist
-  
+
   StatusCode status = transactionItr->second.start_edit(&rel, csv_file, true);
   on_control(tid, status);
 
@@ -84,13 +83,14 @@ bool Database::delete_data(const TID &tid, const RelName &rel_name,
   return true;
 }
 
-bool Database::query(const TID &tid,
-                     [[maybe_unused]] std::span<const QueryAtom> body) {
+bool Database::query(const TID &tid, std::vector<QueryAtom> body) {
   auto it = transactions.find(tid);
   if (it == transactions.end()) {
     std::println(out, "ERROR: transaction {} does not exist.", tid);
     return false;
   }
+
+  it->second.start_query(std::move(body));
   return true;
 }
 

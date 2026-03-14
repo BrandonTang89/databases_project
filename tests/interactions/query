@@ -1,0 +1,24 @@
+> BEGIN T1
+Transaction T1 was created.
+> ADD T1 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> ADD T1 S S1.csv
+Relation S was created.
+Tuples added:      4
+Command time:      <NUMBER> ms
+> QUERY T1 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+3,4,13
+3,4,14
+Number of answers: 4
+Command time:      <NUMBER> ms
+> QUERY T1 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+3,4,13
+3,4,14
+Number of answers: 4
+Command time:      <NUMBER> ms

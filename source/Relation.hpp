@@ -12,6 +12,8 @@ public:
   StableVector<DataTuple, 1> tuples;
   std::unordered_map<int, Group> leftToRightIndex;
   std::unordered_map<int, Group> rightToLeftIndex;
+  std::vector<DataTuple *>
+      diagonalIndex; // index for tuples where left == right
   SLock whole_rel_lock{};
   SLock diagonal_lock{};
 
@@ -23,6 +25,7 @@ public:
    * before calling this method
    */
   bool edit_tuple(Transaction &tx, int left, int right, bool newAlive);
+  DataTuple *get_tuple(int left, int right);
 
 private:
   /**
