@@ -17,7 +17,6 @@ add_compile_options(
     -Woverloaded-virtual
     -Wconversion
     -Wsign-conversion
-    -Wnull-dereference
     -Wdouble-promotion
     -Wformat=2
 )
@@ -36,4 +35,4 @@ if(ENABLE_ASAN)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(databases_project source/main.cpp)
+add_executable(databases_project source/main.cpp source/parsing_functions.cpp)

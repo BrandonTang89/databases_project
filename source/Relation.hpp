@@ -13,4 +13,17 @@ public:
   std::unordered_map<int, Group> rightToLeftIndex;
   SLock whole_rel_lock{};
   SLock diagonal_lock{};
+
+
+  void add_tuple(int left, int right){
+
+  }
+
+  private: 
+
+  void ensure_tuple(int left, int right){
+    const auto& group = leftToRightIndex[left];
+    
+
+  }
 };

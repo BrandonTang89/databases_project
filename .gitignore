@@ -1,3 +1,4 @@
 build/
 .cache/
 .direnv/
+**/__pycache__/

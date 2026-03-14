@@ -4,6 +4,9 @@
 #include <vector>
 
 struct Group {
-  std::vector<DataTuple *> tuples;
+  // DTI: all tuples are either (_, c) or (c, _) for some constant c
+    std::vector<DataTuple *> tuples;
   SLock lock;
+
+  
 };

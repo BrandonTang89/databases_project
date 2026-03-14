@@ -62,7 +62,7 @@
 
               (
                 cd "$project_root"
-                cmake --build --preset "$preset"
+                cmake --build --preset "$preset" -j 8
               )
             '')
             (writeShellScriptBin "run" ''

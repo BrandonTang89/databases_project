@@ -10,7 +10,6 @@
 #include <print>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 
 class Database {
 
@@ -33,10 +32,11 @@ public:
   bool commit_transaction(const TID &tid) {
     auto it = transactions.find(tid);
     if (it == transactions.end()) {
-      return false; // No such transaction
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
+      return false;
     }
 
-    std::print("todo: commit transaction {}\n", tid);
+    std::println(std::cerr, "todo: commit transaction {}", tid);
     transactions.erase(it);
     return true;
   }
@@ -44,10 +44,11 @@ public:
   bool rollback_transaction(const TID &tid) {
     auto it = transactions.find(tid);
     if (it == transactions.end()) {
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
       return false; // No such transaction
     }
 
-    std::print("todo: rollback transaction {}\n", tid);
+    std::println(std::cerr, "todo: rollback transaction {}", tid);
     transactions.erase(it);
     return true;
   }
@@ -57,24 +58,18 @@ public:
   bool add_data(const TID &tid, const RelName &rel_name,
                 const std::string &csv_file) {
     if (transactions.find(tid) == transactions.end()) {
-      out << "ERROR: transaction '" << tid << "' does not exist\n";
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
       return false;
     }
 
     std::ifstream file(csv_file);
     if (!file.is_open()) {
-      out << "ERROR: cannot open file '" << csv_file << "'\n";
+      std::println(out, "ERROR: cannot open file '{}'", csv_file);
       return false;
     }
 
     // Create relation if it does not yet exist.
     Relation &rel = relations[rel_name];
-
-    // Build a fast lookup set of existing tuples so we can skip duplicates.
-    std::unordered_set<long long> existing;
-    existing.reserve(rel.tuples.size() * 2);
-    // Iterate the stable-vector by re-using a helper lambda that walks nodes.
-    // Since StableVector exposes no iterators yet we track inserted pairs below.
 
     int imported = 0;
     std::string line;
@@ -83,21 +78,22 @@ public:
       ++line_no;
       auto [ok, left, right] = parse_csv_line(line);
       if (!ok) {
-        out << "WARNING: skipping malformed line " << line_no
-            << " in '" << csv_file << "': " << line << "\n";
+        std::println(out, "WARNING: skipping malformed line {} in '{}': {}",
+                     line_no, csv_file, line);
         continue;
       }
-      long long key = pack(left, right);
-      if (existing.count(key)) {
+      // Duplicate check via the left-to-right index.
+      if (tuple_exists(rel, left, right)) {
         continue; // duplicate — skip silently
       }
-      existing.insert(key);
-      rel.tuples.emplace(left, right);
+      DataTuple *tp = rel.tuples.emplace(left, right);
+      rel.leftToRightIndex[left].tuples.push_back(tp);
+      rel.rightToLeftIndex[right].tuples.push_back(tp);
       ++imported;
     }
 
-    out << "Imported " << imported << " tuple(s) into relation '" << rel_name
-        << "'\n";
+    std::println(out, "Imported {} tuple(s) into relation '{}'", imported,
+                 rel_name);
     return true;
   }
 
@@ -107,18 +103,18 @@ public:
   bool delete_data(const TID &tid, const RelName &rel_name,
                    const std::string &csv_file) {
     if (transactions.find(tid) == transactions.end()) {
-      out << "ERROR: transaction '" << tid << "' does not exist\n";
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
       return false;
     }
 
     if (relations.find(rel_name) == relations.end()) {
-      out << "ERROR: relation '" << rel_name << "' does not exist\n";
+      std::println(out, "ERROR: relation '{}' does not exist", rel_name);
       return false;
     }
 
     std::ifstream file(csv_file);
     if (!file.is_open()) {
-      out << "ERROR: cannot open file '" << csv_file << "'\n";
+      std::println(out, "ERROR: cannot open file '{}'", csv_file);
       return false;
     }
 
@@ -129,8 +125,8 @@ public:
       ++line_no;
       auto [ok, left, right] = parse_csv_line(line);
       if (!ok) {
-        out << "WARNING: skipping malformed line " << line_no
-            << " in '" << csv_file << "': " << line << "\n";
+        std::println(out, "WARNING: skipping malformed line {} in '{}': {}",
+                     line_no, csv_file, line);
         continue;
       }
       // Mark matching alive tuples as dead (logical delete).
@@ -138,10 +134,98 @@ public:
       deleted += mark_deleted(rel_name, left, right);
     }
 
-    out << "Deleted " << deleted << " tuple(s) from relation '" << rel_name
-        << "'\n";
+    std::println(out, "Deleted {} tuple(s) from relation '{}'", deleted,
+                 rel_name);
     return true;
   }
 
-  bool query(const TID &tid, const std::string &query_str) { return true; }
+  bool query(const TID &tid, std::span<const QueryAtom> body) {
+    auto it = transactions.find(tid);
+    if (it == transactions.end()) {
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
+      return false;
+    }
+    return true;
+  }
+
+  bool resume_transaction(const TID &tid) {
+    if (transactions.find(tid) == transactions.end()) {
+      std::println(out, "ERROR: transaction '{}' does not exist", tid);
+      return false;
+    }
+
+    std::println(std::cerr, "todo: resume transaction {}", tid);
+    return true;
+  }
+
+private:
+  // Returns true when an alive tuple (left, right) already exists in rel.
+  static bool tuple_exists(const Relation &rel, int left, int right) {
+    auto it = rel.leftToRightIndex.find(left);
+    if (it == rel.leftToRightIndex.end())
+      return false;
+    for (const DataTuple *tp : it->second.tuples) {
+      if (tp->alive && tp->right == right)
+        return true;
+    }
+    return false;
+  }
+
+  struct ParseResult {
+    bool ok;
+    int left;
+    int right;
+  };
+
+  // Parse a single "a,b" CSV line.  Returns ok=false for any malformed input.
+  static ParseResult parse_csv_line(const std::string &line) {
+    // Trim trailing CR so Windows line-endings (\r\n) are handled.
+    std::string_view sv = line;
+    if (!sv.empty() && sv.back() == '\r')
+      sv.remove_suffix(1);
+    if (sv.empty())
+      return {false, 0, 0};
+
+    auto comma = sv.find(',');
+    if (comma == std::string_view::npos)
+      return {false, 0, 0};
+
+    std::string_view lhs = sv.substr(0, comma);
+    std::string_view rhs = sv.substr(comma + 1);
+
+    // Reject anything with a second comma.
+    if (rhs.find(',') != std::string_view::npos)
+      return {false, 0, 0};
+
+    int left{}, right{};
+    auto [lend, lerr] =
+        std::from_chars(lhs.data(), lhs.data() + lhs.size(), left);
+    if (lerr != std::errc{} || lend != lhs.data() + lhs.size())
+      return {false, 0, 0};
+
+    auto [rend, rerr] =
+        std::from_chars(rhs.data(), rhs.data() + rhs.size(), right);
+    if (rerr != std::errc{} || rend != rhs.data() + rhs.size())
+      return {false, 0, 0};
+
+    return {true, left, right};
+  }
+
+  // Walk the StableVector of a relation and mark the first alive tuple that
+  // matches (left, right) as dead.  Returns 1 if a tuple was deleted, else 0.
+  // NOTE: StableVector has no public iterator yet, so we walk through the
+  //       leftToRightIndex to find candidate pointers.
+  int mark_deleted(const RelName &rel_name, int left, int right) {
+    auto &rel = relations.at(rel_name);
+    auto it = rel.leftToRightIndex.find(left);
+    if (it == rel.leftToRightIndex.end())
+      return 0;
+    for (DataTuple *tp : it->second.tuples) {
+      if (tp->alive && tp->right == right) {
+        tp->alive = false;
+        return 1;
+      }
+    }
+    return 0;
+  }
 };
