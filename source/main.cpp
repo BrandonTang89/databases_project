@@ -70,12 +70,7 @@ int main() {
         continue;
       }
       const std::string &tid = toks[1];
-      if (!db.begin_transaction(tid)) {
-        std::println("ERROR: transaction '{}' already exists", tid);
-      } else {
-        std::println("Transaction '{}' was created", tid);
-      }
-
+      db.begin_transaction(tid);
     } else if (cmd == "ADD") {
       // ------------------------------------------------------------------
       // ADD <tid> <rel> <file>
@@ -154,11 +149,14 @@ int main() {
       }
       const std::string &tid = toks[1];
       db.resume_transaction(tid);
+    } else if (cmd == "QUIT") {
+      std::println("Goodbye!");
+      return 0;
     } else {
       // ------------------------------------------------------------------
       // Unknown command
       // ------------------------------------------------------------------
-      std::println("ERROR: unknown command '{}'. Known commands: BEGIN ADD "
+      std::println("ERROR: unknown command {}. Known commands: BEGIN ADD "
                    "DELETE COMMIT ROLLBACK QUERY RESUME",
                    cmd);
     }

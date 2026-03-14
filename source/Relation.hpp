@@ -14,16 +14,40 @@ public:
   SLock whole_rel_lock{};
   SLock diagonal_lock{};
 
-
-  void add_tuple(int left, int right){
-
+  bool add_tuple(TID tid, int left, int right) {
+    DataTuple *tp = ensure_tuple(left, right);
+    bool isLocked = tp->lock.acquire(tid, LockMode::EXCLUSIVE);
+    if (isLocked) {
+      tp->alive = true;
+    } else {
+      return false;
+    }
+    assert(false);
   }
 
-  private: 
+  bool delete_tuple(TID tid, int left, int right) {
+    DataTuple *tp = ensure_tuple(left, right);
+    bool isLocked = tp->lock.acquire(tid, LockMode::EXCLUSIVE);
+    if (isLocked) {
+      tp->alive = false;
+    } else {
+      return false;
+    }
+    assert(false);
+  }
 
-  void ensure_tuple(int left, int right){
-    const auto& group = leftToRightIndex[left];
-    
-
+private:
+  DataTuple *ensure_tuple(int left, int right) {
+    Group group = leftToRightIndex[left];
+    DataTuple *tp = group.find(left, right);
+    if (!tp) {
+      // tuple does not exist, so we need to add it
+      tp = tuples.emplace(left, right);
+      leftToRightIndex[left].insert(tp);
+      rightToLeftIndex[right].insert(tp);
+      return tp;
+    } else {
+      return tp;
+    }
   }
 };

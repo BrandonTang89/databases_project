@@ -35,4 +35,6 @@ if(ENABLE_ASAN)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(databases_project source/main.cpp source/parsing_functions.cpp)
+add_executable(databases_project
+    source/main.cpp source/parsing_functions.cpp source/csv_parsing_functions.cpp
+    source/Database.cpp)
