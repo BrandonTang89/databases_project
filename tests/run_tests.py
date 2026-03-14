@@ -17,6 +17,7 @@ The binary is run with its cwd set to tests/running_dir so that CSV file
 paths in the interaction resolve correctly.
 """
 
+import argparse
 import re
 import subprocess
 import sys
@@ -64,7 +65,7 @@ def line_matches(expected: str, actual: str) -> bool:
     return re.fullmatch(pattern, actual) is not None
 
 
-def run_interaction(name: str) -> bool:
+def run_interaction(name: str, print_output: bool = False) -> bool:
     """
     Run the named interaction.  Returns True on pass, False on failure.
     Prints a diff-style report on mismatch.
@@ -90,6 +91,12 @@ def run_interaction(name: str) -> bool:
         text=True,
         cwd=str(RUNNING_DIR),
     )
+
+    if print_output:
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
+        return True
 
     actual_lines = result.stdout.splitlines()
 
@@ -124,13 +131,26 @@ def run_interaction(name: str) -> bool:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <interaction-name>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Run a database interaction test.")
+    parser.add_argument("name", help="Name of the interaction file in tests/interactions/, or 'all' to run all.")
+    parser.add_argument("--print_output", action="store_true", help="Print actual output instead of comparing.")
+    
+    args = parser.parse_args()
 
-    name = sys.argv[1]
-    ok = run_interaction(name)
-    sys.exit(0 if ok else 1)
+    if args.name == "all":
+        interaction_files = sorted([f.name for f in INTERACTIONS.iterdir() if f.is_file()])
+        if not interaction_files:
+            print(f"No interactions found in {INTERACTIONS}")
+            sys.exit(0)
+            
+        all_ok = True
+        for name in interaction_files:
+            if not run_interaction(name, args.print_output):
+                all_ok = False
+        sys.exit(0 if all_ok else 1)
+    else:
+        ok = run_interaction(args.name, args.print_output)
+        sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":

@@ -8,5 +8,11 @@ Command time:      <NUMBER> ms
 Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
+> DELETE T1 R R2.csv
+Tuples deleted:    1
+Command time:      <NUMBER> ms
+> DELETE T1 R R1.csv
+Tuples deleted:    2
+Command time:      <NUMBER> ms
 > COMMIT T1
 Transaction T1 committed.

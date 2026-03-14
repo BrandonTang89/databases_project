@@ -4,6 +4,6 @@
 struct DataTuple {
   int left{};
   int right{};
-  bool alive{true};
+  bool alive{false};
   XSLock lock{};
 };

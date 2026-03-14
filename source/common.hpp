@@ -4,7 +4,11 @@
 #include <string>
 #include <variant>
 
+constexpr bool enable_trace = false;
+
 class Database;
+class Relation;
+class Transaction;
 
 using TID = std::string;
 using RelName = std::string;
@@ -16,13 +20,12 @@ enum class StatusCode {
 enum class LockMode { SHARED, EXCLUSIVE };
 enum class TransactionState {
   READY,
-  SUSPENDED_QUERY,
-  SUSPENDED_ADD,
-  SUSPENDED_DELETE,
+  EXECUTING_QUERY,
+  EXECUTING_ADD,
+  EXECUTING_DELETE,
   COMMITTED,
   ABORTED
 };
-
 
 // Query Representation
 struct Constant {
@@ -40,7 +43,21 @@ struct QueryAtom {
 };
 
 template <typename... Args>
-void debug(std::format_string<Args...> fmt, Args&&... args) {
+void debug(std::format_string<Args...> fmt, Args &&...args) {
   std::cerr << "[DEBUG] ";
+  std::println(std::cerr, fmt, std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+void trace(std::format_string<Args...> fmt, Args &&...args) {
+  if constexpr (enable_trace) {
+    std::cerr << "[TRACE] ";
+    std::println(std::cerr, fmt, std::forward<Args>(args)...);
+  }
+}
+
+template <typename... Args>
+void todo(std::format_string<Args...> fmt, Args &&...args) {
+  std::cerr << "[TODO] ";
   std::println(std::cerr, fmt, std::forward<Args>(args)...);
 }

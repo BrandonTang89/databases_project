@@ -3,6 +3,7 @@
 #include "Group.hpp"
 #include "SLock.hpp"
 #include "StableVector.hpp"
+#include "common.hpp"
 #include <unordered_map>
 
 class Relation {
@@ -14,40 +15,23 @@ public:
   SLock whole_rel_lock{};
   SLock diagonal_lock{};
 
-  bool add_tuple(TID tid, int left, int right) {
-    DataTuple *tp = ensure_tuple(left, right);
-    bool isLocked = tp->lock.acquire(tid, LockMode::EXCLUSIVE);
-    if (isLocked) {
-      tp->alive = true;
-    } else {
-      return false;
-    }
-    assert(false);
-  }
-
-  bool delete_tuple(TID tid, int left, int right) {
-    DataTuple *tp = ensure_tuple(left, right);
-    bool isLocked = tp->lock.acquire(tid, LockMode::EXCLUSIVE);
-    if (isLocked) {
-      tp->alive = false;
-    } else {
-      return false;
-    }
-    assert(false);
-  }
+  /**
+   * returns true on success, false if the transaction cannot acquire the
+   * necessary locks
+   *
+   * Doesn't check whole relation lock for efficiency, caller should check
+   * before calling this method
+   */
+  bool edit_tuple(Transaction &tx, int left, int right, bool newAlive);
 
 private:
-  DataTuple *ensure_tuple(int left, int right) {
-    Group group = leftToRightIndex[left];
-    DataTuple *tp = group.find(left, right);
-    if (!tp) {
-      // tuple does not exist, so we need to add it
-      tp = tuples.emplace(left, right);
-      leftToRightIndex[left].insert(tp);
-      rightToLeftIndex[right].insert(tp);
-      return tp;
-    } else {
-      return tp;
-    }
-  }
+  /**
+   * Ensures that a tuple with the given left and right values exists in the
+   * relation.
+   * Once a tuple is created, it is never removed.
+   * Always safe to do regardless of any locks
+   */
+  DataTuple *ensure_tuple(int left, int right);
+
+  bool check_predicate_locks(const TID &tid, int left, int right);
 };

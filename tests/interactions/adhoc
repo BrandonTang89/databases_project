@@ -1,0 +1,9 @@
+> BEGIN T1
+Transaction T1 was created.
+> RESUME T1
+ERROR: transaction is not suspended
+Current state: READY
+> COMMIT T1 
+Transaction T1 committed.
+> QUIT
+Goodbye!

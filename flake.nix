@@ -22,7 +22,7 @@
           packages = with pkgs; [
             gcc15
             cmake
-            clang-tools
+            llvmPackages_22.clang-tools
             ninja
             (writeShellScriptBin "build" ''
               set -eu

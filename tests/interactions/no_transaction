@@ -1,10 +1,10 @@
 > ADD T1 R R1.csv
-ERROR: transaction 'T1' does not exist
+ERROR: transaction T1 does not exist.
 > COMMIT T1 
-ERROR: transaction 'T1' does not exist
+ERROR: transaction T1 does not exist.
 > ROLLBACK T1
-ERROR: transaction 'T1' does not exist
+ERROR: transaction T1 does not exist.
 > RESUME T1
-ERROR: transaction 'T1' does not exist
+ERROR: transaction T1 does not exist.
 > QUERY T1 friend(1,x), friend(x,y)
-ERROR: transaction 'T1' does not exist
+ERROR: transaction T1 does not exist.

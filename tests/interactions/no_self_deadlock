@@ -4,9 +4,10 @@ Transaction T1 was created.
 Relation R was created.
 Tuples added:      3
 Command time:      <NUMBER> ms
-> ADD T1 S S1.csv
-Relation S was created.
-Tuples added:      4
+> ADD T1 R R1.csv
+Tuples added:      0
 Command time:      <NUMBER> ms
 > COMMIT T1
 Transaction T1 committed.
+> QUIT
+Goodbye!

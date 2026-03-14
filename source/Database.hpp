@@ -3,10 +3,8 @@
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
-#include <fstream>
 #include <iostream>
 #include <ostream>
-#include <print>
 #include <string>
 #include <unordered_map>
 
@@ -17,11 +15,19 @@ private:
   std::unordered_map<TID, Transaction> transactions;
   ConflictGraph conflict_graph;
 
+  // Call after control is returned from a transaction operation.
+  void on_control(const TID &tid, StatusCode status) {
+    if (status == StatusCode::SUSPENDED) {
+      std::println(out, "Transaction {} was suspended.", tid);
+      conflict_graph.process(tid);
+    }
+  }
+
 public:
   Database(std::ostream &output_stream = std::cout) : out(output_stream) {}
 
   bool begin_transaction(const TID &tid);
-  
+
   bool resume_transaction(const TID &tid);
 
   bool commit_transaction(const TID &tid);

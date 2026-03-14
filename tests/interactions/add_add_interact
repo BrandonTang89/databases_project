@@ -1,0 +1,20 @@
+> BEGIN T1
+Transaction T1 was created.
+> BEGIN T2
+Transaction T2 was created.
+> ADD T1 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> ADD T2 R R1.csv
+Transaction T2 was suspended.
+> ROLLBACK T1
+Transaction T1 was rolled back.
+> RESUME T2
+Resuming transaction T2.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> COMMIT T2
+Transaction T2 committed.
+> QUIT
+Goodbye!

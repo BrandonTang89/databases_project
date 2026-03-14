@@ -24,6 +24,9 @@ static void usage(const std::string &cmd) {
   else if (cmd == "QUERY")
     std::println(
         "Usage: QUERY <tid> RelName(arg,arg) [, RelName(arg,arg) ...]");
+  else if (cmd == "RESUME") {
+    std::println("Usage: RESUME <tid>");
+  }
 }
 
 // ---------------------------------------------------------------------------
