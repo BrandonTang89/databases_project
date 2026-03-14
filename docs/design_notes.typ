@@ -118,6 +118,7 @@ For each R(s, t) in the query:
           - acquire an S lock on the S lock for R(-, w.y)
           - W' = W' U ({w} times R.rightToLeftIndex(w.y))
       - else
+        - Lock the whole relation
         - W' = W x R
   - (x, x)
     - acquire an S lock on the diagonal lock for R
@@ -126,3 +127,13 @@ For each R(s, t) in the query:
     - else
       - W' = W x R.diagonalIndex
 ```
+
+Detecting deadlocks is not super trivial:
+- We create a biparatite graph of nodes representing transactions and locks
+- There is an edge from transaction T to lock L if T is waiting to be permitted by L or is trying to acquire L
+- There is an edge from lock L to transaction T if T holds L
+
+From the last added transaction, try to find a cycle repeatedly until we cannot find anymore cycles. 
+There can be more than 1 cycle introduced at once
+
+To find a cycle, we do a regular DFS/BFS but prevent loops to parents (which represent waiting on the same lock.. because you want to exclusively hold it but its currently being shared, urself included)

@@ -40,6 +40,18 @@ struct QueryAtom {
   std::string relation;
   QueryArg left;
   QueryArg right;
+
+  std::string to_string() const {
+    auto arg_to_string = [](const QueryArg &arg) -> std::string {
+      if (std::holds_alternative<Constant>(arg)) {
+        return std::to_string(std::get<Constant>(arg).value);
+      } else {
+        return std::get<Variable>(arg).name;
+      }
+    };
+    return std::format("{}({}, {})", relation, arg_to_string(left),
+                       arg_to_string(right));
+  }
 };
 
 template <typename... Args>

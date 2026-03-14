@@ -39,15 +39,15 @@ public:
       }
     }
     assert(false); // unreachable
-}
+  }
 
   virtual void release(const TID &tid) override {
     // Remove tid from lock_holders_.
     assert(is_held_by(tid));
     lock_holders_.erase(tid);
     if (held_exclusively_) {
-        assert(holder_count() == 0);
-        held_exclusively_ = false;
+      assert(holder_count() == 0);
+      held_exclusively_ = false;
     }
   }
 
@@ -56,6 +56,12 @@ public:
   }
 
   size_t holder_count() const { return lock_holders_.size(); }
+
+  bool is_held_exclusively() const override { return held_exclusively_; }
+
+  const std::flat_set<TID> &current_holders() const override {
+    return lock_holders_;
+  }
 
   virtual ~XSLock() override = default;
 };

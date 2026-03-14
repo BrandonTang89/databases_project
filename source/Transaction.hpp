@@ -65,6 +65,8 @@ class Transaction {
   StatusCode resume_edit();
   StatusCode resume_query();
 
+  bool acquire(Lock &lock, LockMode mode);
+
 public:
   Transaction(std::ostream &output_stream, const TID &transaction_id,
               std::unordered_map<RelName, Relation> &relations);

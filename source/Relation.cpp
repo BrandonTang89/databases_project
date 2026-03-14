@@ -37,9 +37,7 @@ bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
     return false;
   }
 
-  bool isLocked = tp->lock.acquire(tid, LockMode::EXCLUSIVE);
-  if (isLocked) {
-    tx.held_locks.insert(&tp->lock);
+  if (tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
     if (tp->alive == newAlive) {
       // tuple already correct
       return true;

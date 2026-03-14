@@ -11,6 +11,14 @@
 #include <variant>
 #include <vector>
 
+bool Transaction::acquire(Lock &lock, LockMode mode) {
+  if (lock.acquire(tid, mode)) {
+    held_locks.insert(&lock);
+    return true;
+  }
+  return false;
+}
+
 Transaction::Transaction(std::ostream &output_stream, const TID &transaction_id,
                          std::unordered_map<RelName, Relation> &relations)
     : out(output_stream), tid(transaction_id), relations(relations) {}
@@ -136,6 +144,8 @@ StatusCode Transaction::resume_query() {
   }
 
   for (; query_index < query.size(); ++query_index) {
+    debug("Processing query atom {}/{}: {}", query_index + 1, query.size(),
+          query[query_index].to_string());
     const auto &atom = query[query_index];
     const auto &rel_name = atom.relation;
     Relation &rel = relations[rel_name];
@@ -147,8 +157,7 @@ StatusCode Transaction::resume_query() {
       int r = d.value;
 
       DataTuple *tp = rel.get_tuple(l, r);
-      if (tp->lock.acquire(this->tid, LockMode::SHARED)) {
-        held_locks.insert(&tp->lock);
+      if (acquire(tp->lock, LockMode::SHARED)) {
         if (tp->alive) {
           return StatusCode::SUCCESS;
         }
@@ -162,8 +171,7 @@ StatusCode Transaction::resume_query() {
     auto const_var = [&rel, this](Constant c, Variable y) {
       int l = c.value;
       Group &group = rel.leftToRightIndex[l];
-      bool is_locked = group.lock.acquire(tid, LockMode::SHARED);
-      if (!is_locked) {
+      if (acquire(group.lock, LockMode::SHARED)) {
         debug("Transaction {} is waiting for left group lock for value {}", tid,
               l);
         return StatusCode::SUSPENDED;
@@ -209,6 +217,13 @@ StatusCode Transaction::resume_query() {
     }
     query_index++;
   }
+
+  for (const auto &[var_name, vals] : query_results) {
+    std::println(out, "{}: {}", var_name, vals);
+  }
+  print_time_taken();
+
+  state = TransactionState::READY;
   return StatusCode::SUCCESS;
 }
 
@@ -256,7 +271,14 @@ void Transaction::filter_query_results(
 
 void Transaction::cartesian_product(std::string var_name,
                                     std::span<const int> vals) {
-  size_t n = query_results.empty() ? 0 : query_results.begin()->second.size();
+
+  if (query_results.empty()) {
+    // if there is nothing to cross, just let query_results =vals
+    query_results[var_name] = std::vector<int>(vals.begin(), vals.end());
+    return;
+  }
+
+  size_t n = query_results.begin()->second.size();
   for (auto &[existing_var, existing_vals] : query_results) {
     // copy each variable |vals| times
     for (int _ : vals) {

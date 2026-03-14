@@ -35,10 +35,19 @@ public:
    * A lock permits if it is not held or held exclusively by this transaction.
    */
   bool permits(const TID &tid) const {
-    return lock_holders_.empty() || (lock_holders_.size() == 1 && is_held_by(tid));
+    return lock_holders_.empty() ||
+           (lock_holders_.size() == 1 && is_held_by(tid));
   }
-  
+
   size_t holder_count() const { return lock_holders_.size(); }
 
+  const std::flat_set<TID> &current_holders() const override {
+    return lock_holders_;
+  }
+
   virtual ~SLock() override = default;
+
+  bool is_held_exclusively() const override {
+    return false; // SLock is never held exclusively
+  }
 };
