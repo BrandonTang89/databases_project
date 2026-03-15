@@ -3,6 +3,7 @@
 #include <print>
 #include <string>
 #include <variant>
+#include <vector>
 
 constexpr bool enable_trace = false;
 
@@ -52,6 +53,17 @@ struct QueryAtom {
     return std::format("{}({}, {})", relation, arg_to_string(left),
                        arg_to_string(right));
   }
+};
+
+enum class PipelineStatus {
+  OK,
+  SUSPEND,
+  FINISHED,
+};
+
+struct Channel {
+  PipelineStatus status{PipelineStatus::OK};
+  std::vector<int> data;
 };
 
 template <typename... Args>

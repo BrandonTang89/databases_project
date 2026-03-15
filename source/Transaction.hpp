@@ -1,6 +1,7 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "Relation.hpp"
+#include "Stage.hpp"
 #include "common.hpp"
 #include <chrono>
 #include <flat_map>
@@ -21,6 +22,7 @@ static std::flat_map<TransactionState, std::string> transaction_state_names = {
 
 class Transaction {
   friend class Relation;
+  friend class Stage;
   std::ostream &out;
   TID tid;
   std::unordered_map<RelName, Relation> &relations;
@@ -40,13 +42,11 @@ class Transaction {
   size_t num_modified{0};
 
   // Suspended State for query operations
-  std::vector<QueryAtom> query;
-  size_t query_index{0}; // next atom to process
-  using QueryResults = std::unordered_map<std::string, std::vector<int>>;
-  QueryResults::iterator
-      query_results_it;         // used for lazy lock acquisition for joins
-  QueryResults query_results;   // intermediate results for query execution
-  QueryResults query_results_p; // the next set of intermediate results
+  std::vector<QueryAtom> query_atoms;      // |query|
+  std::flat_map<std::string, size_t> var_idx; // |num_vars|
+  std::vector<Stage> stages;     // |query|
+  std::vector<size_t> input_variables; // num vars in channels[i], |query| + 1
+  size_t num_answers{0};
 
   bool is_suspended() const;
   void print_time_taken() const;
@@ -65,24 +65,16 @@ class Transaction {
   StatusCode resume_edit();
   StatusCode resume_query();
 
-  bool acquire(Lock &lock, LockMode mode);
-
 public:
+  bool acquire(Lock &lock, LockMode mode);
   Transaction(std::ostream &output_stream, const TID &transaction_id,
-              std::unordered_map<RelName, Relation> &relations);
+              std::unordered_map<RelName, Relation> &rels);
   StatusCode start_edit(Relation *rel, const std::string &csv_file,
                         bool newAlive);
   StatusCode start_query(std::vector<QueryAtom> query_atoms);
   StatusCode resume();
   StatusCode commit();
   StatusCode rollback();
-
-  // Filter query_results by only keeping the indices in filtered indices
-  void filter_query_results(std::span<const size_t> filtered_indices);
-
-  // Replaces query_results with a cartesian product of the query results and
-  // the given values.
-  void cartesian_product(std::string, std::span<const int> vals);
 
   const TID &get_tid() const { return tid; }
 };

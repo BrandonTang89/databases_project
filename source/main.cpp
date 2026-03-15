@@ -141,7 +141,7 @@ int main() {
         std::println("ERROR: invalid query syntax — {}", err);
         continue;
       }
-      db.query(tid, atoms.value());
+      db.query(tid, std::move(atoms.value()));
     } else if (cmd == "RESUME") {
       // ------------------------------------------------------------------
       // RESUME <tid>

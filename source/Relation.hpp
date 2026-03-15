@@ -25,6 +25,9 @@ public:
    * before calling this method
    */
   bool edit_tuple(Transaction &tx, int left, int right, bool newAlive);
+
+  /** Ensures the tuple is created and thus always not null
+   */
   DataTuple *get_tuple(int left, int right);
 
 private:

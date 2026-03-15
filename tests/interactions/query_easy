@@ -1,0 +1,46 @@
+> BEGIN T1
+Transaction T1 was created.
+> ADD T1 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> ADD T1 S S1.csv
+Relation S was created.
+Tuples added:      4
+Command time:      <NUMBER> ms
+> QUERY T1 R(X,2)
+1
+Number of answers: 1
+Command time:      <NUMBER> ms
+> QUERY T1 R(1,Y)
+2
+Number of answers: 1
+Command time:      <NUMBER> ms
+> QUERY T1 R(1, Y), S(2, Z)
+2,11
+2,12
+Number of answers: 2
+Command time:      <NUMBER> ms
+> QUERY T1 R(1, 2), S(2, Z)
+11
+12
+Number of answers: 2
+Command time:      <NUMBER> ms
+> QUERY T1 S(2, Z), R(1, 2) 
+11
+12
+Number of answers: 2
+Command time:      <NUMBER> ms
+> QUERY T1 S(2, Z), R(1, 3) 
+Number of answers: 0
+Command time:      <NUMBER> ms
+> QUERY T1 R(1, 3), S(2, Z)
+Number of answers: 0
+Command time:      <NUMBER> ms
+> QUERY T1 R(X, 2), S(2, Y), S(4, Z)
+1,11,13
+1,11,14
+1,12,13
+1,12,14
+Number of answers: 4
+Command time:      <NUMBER> ms

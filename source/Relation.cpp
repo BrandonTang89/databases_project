@@ -57,9 +57,7 @@ bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
 }
 
 DataTuple *Relation::get_tuple(int left, int right) {
-  ensure_tuple(left, right);
-  Group group = leftToRightIndex[left];
-  return group.find(left, right);
+  return ensure_tuple(left, right);
 }
 
 DataTuple *Relation::ensure_tuple(int left, int right) {

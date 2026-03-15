@@ -90,25 +90,25 @@ Tuple-level locks will be contained within each DataTuple directly. These are `X
 maintain a set of variables that we have seen S = {} and a set of tuples W of size |S|
 
 For each R(s, t) in the query: 
-  match (s, r) with 
-  - (c1, c2) where c1 and c2 are constants
+  match (s, r) with   
+  - (c1, c2) where c1 and c2 are constants                ---- 0
     - acquire an S lock on the tuple (c1, c2)
     - if (c1, c2) in R, continue, else return
   - (c, y)
     - acquire an S lock on the S lock for R(c, -)
     - if y in S
-      - W' = W.filter(w -> w.t in R.leftToRightIndex(c))
+      - W' = W.filter(w -> w.t in R.leftToRightIndex(c))      ---- 1
     - else
-      - W' = W x R.leftToRightIndex(c)
+      - W' = W x R.leftToRightIndex(c)                        ---- 2
   - (x, c)
     - acquire an S lock on the S lock for R(-, c)
     - if x in S
-      - W' = W.filter(w -> w.s in R.rightToLeftIndex(c))
-    - else
-      - W' = W x R.rightToLeftIndex(c)
+      - W' = W.filter(w -> w.s in R.rightToLeftIndex(c))      ---- 3
+    - else      
+      - W' = W x R.rightToLeftIndex(c)                      ---- 4
   - (x, y)
       - if x in S and y in S
-        - W' = W.filter(w -> (w.x, w.y) in R) acquiring tuple locks on R(w.x, w.y)
+        - W' = W.filter(w -> (w.x, w.y) in R) acquiring tuple locks on R(w.x, w.y)  ---- 5
       - else if x in S
         - for each w in W
           - acquire an S lock on the S lock for R(w.x, -)

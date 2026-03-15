@@ -20,8 +20,8 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
 }
 
 Transaction::Transaction(std::ostream &output_stream, const TID &transaction_id,
-                         std::unordered_map<RelName, Relation> &relations)
-    : out(output_stream), tid(transaction_id), relations(relations) {}
+                         std::unordered_map<RelName, Relation> &rels)
+    : out(output_stream), tid(transaction_id), relations(rels) {}
 
 bool Transaction::is_suspended() const {
   return state == TransactionState::EXECUTING_QUERY ||
@@ -114,25 +114,44 @@ StatusCode Transaction::resume_edit() {
   return StatusCode::SUCCESS;
 }
 
-StatusCode Transaction::start_query(std::vector<QueryAtom> query_atoms) {
+StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
   if (state != TransactionState::READY) {
     std::println(out, "ERROR: transaction is not in READY state.");
     std::println(out, "Current state: {}", transaction_state_names[state]);
     return StatusCode::SUCCESS;
   }
+  command_start_time = std::chrono::high_resolution_clock::now();
+  state = TransactionState::EXECUTING_QUERY;
+  num_answers = 0;
 
   // Check that all relations exist before starting execution
-  for (const auto &atom : query_atoms) {
+  // Also fill in var_idx to map each variable name with an index
+  size_t num_vars = 0;
+  var_idx.clear();
+  for (const auto &atom : query) {
     if (relations.find(atom.relation) == relations.end()) {
       std::println(out, "ERROR: relation {} does not exist.", atom.relation);
       return StatusCode::SUCCESS;
     }
+    for (const auto &arg : {atom.left, atom.right}) {
+      if (std::holds_alternative<Variable>(arg)) {
+        const std::string &var_name = std::get<Variable>(arg).name;
+        if (var_idx.find(var_name) == var_idx.end()) {
+          var_idx[var_name] = num_vars++;
+        }
+      }
+    }
   }
 
-  command_start_time = std::chrono::high_resolution_clock::now();
-  query = std::move(query_atoms);
-  query_index = 0;
-  state = TransactionState::EXECUTING_QUERY;
+  // Build the stages
+  this->query_atoms = std::move(query); // the stages need the query atoms
+  stages.clear();
+  stages.reserve(query_atoms.size() + 1);
+  for (size_t i = 0; i <= query_atoms.size(); ++i) {
+    // left to right order is critical to set up properly
+    stages.emplace_back(i, *this); // internally will set up as needed
+  }
+
   return resume_query();
 }
 
@@ -143,88 +162,28 @@ StatusCode Transaction::resume_query() {
     return StatusCode::SUCCESS;
   }
 
-  for (; query_index < query.size(); ++query_index) {
-    debug("Processing query atom {}/{}: {}", query_index + 1, query.size(),
-          query[query_index].to_string());
-    const auto &atom = query[query_index];
-    const auto &rel_name = atom.relation;
-    Relation &rel = relations[rel_name];
-    QueryArg left = atom.left;
-    QueryArg right = atom.right;
-
-    auto const_const = [&rel, this](Constant c, Constant d) {
-      int l = c.value;
-      int r = d.value;
-
-      DataTuple *tp = rel.get_tuple(l, r);
-      if (acquire(tp->lock, LockMode::SHARED)) {
-        if (tp->alive) {
-          return StatusCode::SUCCESS;
+  while (true) {
+    PipelineStatus st = stages.back().next();
+    if (st == PipelineStatus::OK) {
+      num_answers++;  
+      for (size_t i = 0; i < stages.back().num_output_vars; ++i) {
+        std::cout << stages.back().get_out_channel()->at(i);
+        if (i < stages.back().num_output_vars - 1) {
+          std::cout << ",";
         }
-      } else {
-        debug("Transaction {} is waiting to acquire lock for tuple ({}, {})",
-              tid, l, r);
-        return StatusCode::SUSPENDED;
       }
-      assert(false);
-    };
-    auto const_var = [&rel, this](Constant c, Variable y) {
-      int l = c.value;
-      Group &group = rel.leftToRightIndex[l];
-      if (acquire(group.lock, LockMode::SHARED)) {
-        debug("Transaction {} is waiting for left group lock for value {}", tid,
-              l);
-        return StatusCode::SUSPENDED;
-      }
-
-      if (query_results.contains(y.name)) {
-        // this is a filter
-        size_t n = query_results[y.name].size();
-        std::vector<size_t> filtered_indices;
-        for (size_t i = 0; i < n; i++) {
-          if (group.find(l, query_results[y.name][i])) {
-            filtered_indices.push_back(i);
-          }
-        }
-        filter_query_results(filtered_indices);
-      } else {
-        // cartesian product
-        std::vector<int> vals;
-        for (DataTuple *tp : group.tuples) {
-          if (tp->alive) {
-            vals.push_back(tp->right);
-          }
-        }
-        cartesian_product(y.name, vals);
-      }
-
-      return StatusCode::SUCCESS;
-    };
-    auto var_const = [](Variable v, Constant c) {
-      std::string var_name = v.name;
-      int r = c.value;
-      return StatusCode::SUCCESS;
-    };
-    auto var_var = [](Variable v1, Variable v2) {
-      std::string var_name1 = v1.name;
-      std::string var_name2 = v2.name;
-      return StatusCode::SUCCESS;
-    };
-    const auto visitor = overloaded{const_const, const_var, var_const, var_var};
-    StatusCode status = std::visit(visitor, left, right);
-    if (status == StatusCode::SUSPENDED) {
+      std::cout << "\n";
+      continue;
+    } else if (st == PipelineStatus::SUSPEND) {
+      debug("Transaction is suspended while executing query.");
       return StatusCode::SUSPENDED;
+    } else if (st == PipelineStatus::FINISHED) {
+      state = TransactionState::READY;
+      std::println(out, "Number of answers: {}", num_answers);
+      print_time_taken();
+      return StatusCode::SUCCESS;
     }
-    query_index++;
   }
-
-  for (const auto &[var_name, vals] : query_results) {
-    std::println(out, "{}: {}", var_name, vals);
-  }
-  print_time_taken();
-
-  state = TransactionState::READY;
-  return StatusCode::SUCCESS;
 }
 
 StatusCode Transaction::commit() {
@@ -256,39 +215,4 @@ StatusCode Transaction::rollback() {
 
   std::println(out, "Transaction {} was rolled back.", tid);
   return StatusCode::SUCCESS;
-}
-
-void Transaction::filter_query_results(
-    std::span<const size_t> filtered_indices) {
-  for (auto &[var_name, vals] : query_results) {
-    std::vector<int> filtered_vals;
-    for (size_t i : filtered_indices) {
-      filtered_vals.push_back(vals[i]);
-    }
-    query_results_p[var_name] = std::move(filtered_vals);
-  }
-}
-
-void Transaction::cartesian_product(std::string var_name,
-                                    std::span<const int> vals) {
-
-  if (query_results.empty()) {
-    // if there is nothing to cross, just let query_results =vals
-    query_results[var_name] = std::vector<int>(vals.begin(), vals.end());
-    return;
-  }
-
-  size_t n = query_results.begin()->second.size();
-  for (auto &[existing_var, existing_vals] : query_results) {
-    // copy each variable |vals| times
-    for (int _ : vals) {
-      query_results_p[existing_var].append_range(existing_vals);
-    }
-  }
-  for (int val : vals) {
-    // put |n| copies of each val to match with each existing_vals
-    for (size_t i = 0; i < n; i++) {
-      query_results_p[var_name].push_back(val);
-    }
-  }
 }
