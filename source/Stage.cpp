@@ -1,4 +1,5 @@
 #include "Stage.hpp"
+#include "DataTuple.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
 #include <variant>
@@ -66,10 +67,14 @@ Stage::Stage(size_t stage_index, Transaction &trx)
 
       } else if (var_idx >= num_input_vars) {
         // var_idx is new, var2_idx is existing
-        todo("right_join");
+        type = StageType::JOIN_RIGHT;
+        num_output_vars = num_input_vars + 1;
+        output.resize(num_output_vars);
       } else if (var2_idx >= num_input_vars) {
         // var2_idx is new, var_idx is existing
-        todo("left_join");
+        type = StageType::JOIN_LEFT;
+        num_output_vars = num_input_vars + 1;
+        output.resize(num_output_vars);
       } else {
         type = StageType::RELATION_FILTER;
         tx.acquire(rel->whole_rel_lock, LockMode::SHARED);
@@ -117,16 +122,9 @@ PipelineStatus Stage::next() {
   case StageType::RELATION_PRODUCT:
     return next_relation_product();
   case StageType::JOIN_LEFT:
-    todo("join_left");
-    break;
-    // assert(false && "JOIN_LEFT not implemented yet");
-    // return execute_join_left();
+    return next_join_left();
   case StageType::JOIN_RIGHT:
-    todo("join_right");
-    break;
-
-    // assert(false && "JOIN_RIGHT not implemented yet");
-    // return execute_join_right();
+    return next_join_right();
   }
   assert(false && "unreachable");
 }
@@ -160,24 +158,28 @@ PipelineStatus Stage::next_group_filter() {
     }
 
     // Check the new input
+    DataTuple *tp;
     if (left_is_const && right_is_var) {
-      if (group->find(const_val, input->at(var_idx))->alive) {
-        // passes the filter
-        return PipelineStatus::OK;
-      }
+      tp = group->find(const_val, input->at(var_idx));
     } else if (left_is_var && right_is_const) {
-      if (group->find(input->at(var_idx), const_val)->alive) {
-        // passes the filter
-        return PipelineStatus::OK;
-      }
+      tp = group->find(input->at(var_idx), const_val);
     } else if (left_is_var && right_is_var) {
       assert(var_idx == var2_idx && "group filter only for diagonal");
-      if (group->find(input->at(var_idx), input->at(var2_idx))->alive) {
-        // passes the filter
-        return PipelineStatus::OK;
-      }
+      tp = group->find(input->at(var_idx), input->at(var2_idx));
     } else {
       assert(false && "invalid setup for group filter");
+    }
+
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
+
+    if (tp->alive) {
+      // passes the filter
+      return PipelineStatus::OK;
+    } else {
+      // doesn't pass the filter, try to get the next tuple from previous stage
+      continue;
     }
   }
   assert(false && "unreachable");
@@ -206,12 +208,15 @@ PipelineStatus Stage::next_group_product() {
       group_iter = group->tuples.begin();
     }
 
-    const DataTuple *tp = *group_iter;
-    group_iter++;
+    DataTuple *tp = *group_iter;
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
     // Skip dead tuples
     if (!tp->alive) {
       continue;
     }
+    group_iter++;
     output[var_idx] = left_is_const ? tp->right : tp->left;
     // diagonal group either left or right is okay
     return PipelineStatus::OK;
@@ -230,11 +235,9 @@ PipelineStatus Stage::next_relation_filter() {
     int right_val = input->at(var2_idx);
     DataTuple *tp = rel->get_tuple(left_val, right_val);
     assert(tp && "tuple should always exist");
-    if (!tp->lock.is_held_by(tx.tid)) {
-      if (!tx.acquire(tp->lock, LockMode::SHARED)) {
-        return PipelineStatus::SUSPEND;
-      }
-    }
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
 
     if (tp->alive) {
       // passes the filter
@@ -267,6 +270,9 @@ PipelineStatus Stage::next_relation_product() {
     }
 
     DataTuple *tp = &*rel_iter;
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
     rel_iter++;
     if (!tp->alive) {
       // Skip dead (never-inserted or deleted) tuples
@@ -276,4 +282,68 @@ PipelineStatus Stage::next_relation_product() {
     output[var2_idx] = tp->right;
     return PipelineStatus::OK;
   }
+}
+
+PipelineStatus Stage::next_join_left() {
+  if (!group_iter_valid) {
+    // We need to pull a new one
+    PipelineStatus st = previous->next();
+    if (st != PipelineStatus::OK) {
+      return st;
+    }
+    std::copy(input->begin(), input->end(), output.begin());
+    group = &rel->leftToRightIndex[input->at(var_idx)];
+    group_iter = group->tuples.begin();
+    tx.acquire(group->lock, LockMode::SHARED);
+    group_iter_valid = true;
+  }
+
+  while (group_iter != group->tuples.end()) {
+    DataTuple *tp = *group_iter;
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
+    // Skip dead tuples
+    if (!tp->alive) {
+      group_iter++;
+      continue;
+    }
+    output[var2_idx] = tp->right;
+    group_iter++;
+    return PipelineStatus::OK;
+  }
+  group_iter_valid = false;
+  return next_join_left(); // tail recursion to get the next one
+}
+
+PipelineStatus Stage::next_join_right() {
+  if (!group_iter_valid) {
+    // We need to pull a new one
+    PipelineStatus st = previous->next();
+    if (st != PipelineStatus::OK) {
+      return st;
+    }
+    std::copy(input->begin(), input->end(), output.begin());
+    group = &rel->rightToLeftIndex[input->at(var2_idx)];
+    group_iter = group->tuples.begin();
+    tx.acquire(group->lock, LockMode::SHARED);
+    group_iter_valid = true;
+  }
+
+  while (group_iter != group->tuples.end()) {
+    DataTuple *tp = *group_iter;
+    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
+    if (!locked)
+      return PipelineStatus::SUSPEND;
+    // Skip dead tuples
+    if (!tp->alive) {
+      group_iter++;
+      continue;
+    }
+    output[var_idx] = tp->left;
+    group_iter++;
+    return PipelineStatus::OK;
+  }
+  group_iter_valid = false;
+  return next_join_right(); // tail recursion to get the next one
 }

@@ -61,7 +61,7 @@ DataTuple *Relation::get_tuple(int left, int right) {
 }
 
 DataTuple *Relation::ensure_tuple(int left, int right) {
-  Group group = leftToRightIndex[left];
+  Group &group = leftToRightIndex[left];
   DataTuple *tp = group.find(left, right);
   if (!tp) {
     // tuple does not exist, so we need to add it

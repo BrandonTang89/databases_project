@@ -1,12 +1,12 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "SLock.hpp"
+#include "StableVector.hpp"
 #include <cassert>
-#include <flat_set>
 
 struct Group {
   // DTI: all tuples are either (_, c) or (c, _) for some constant c
-  std::flat_set<DataTuple *> tuples;
+  StableVector<DataTuple *> tuples;
   SLock lock;
 
   // Find the alive tuples with given left and right values
@@ -21,6 +21,7 @@ struct Group {
   bool insert(DataTuple *tp) {
     // Precondition: tp is not already in tuples and matches the DTI pattern.
     assert(!find(tp->left, tp->right));
-    return tuples.insert(tp).second;
+    tuples.push_back(tp);
+    return true;
   }
 };

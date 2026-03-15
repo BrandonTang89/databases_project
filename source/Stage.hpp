@@ -28,7 +28,8 @@ public:
   int const_val = 0;
   Group *group;
 
-  std::flat_set<DataTuple *>::iterator group_iter;
+  bool group_iter_valid = false;
+  StableVector<DataTuple *>::iterator group_iter;
   StableVector<DataTuple>::iterator rel_iter;
 
   Stage(size_t stage_index, Transaction &trx);
@@ -50,6 +51,8 @@ public:
   PipelineStatus next_group_product();
   PipelineStatus next_relation_filter();
   PipelineStatus next_relation_product();
+  PipelineStatus next_join_left(); // join on R(existing, new)
+  PipelineStatus next_join_right(); // join on R(new, existing)
 
   std::vector<int> *get_out_channel() {
     if (type == StageType::GROUP_FILTER || type == StageType::RELATION_FILTER ||

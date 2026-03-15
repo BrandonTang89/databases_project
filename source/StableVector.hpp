@@ -145,6 +145,7 @@ public:
 
   // push_back: move-construct from t
   T *push_back(T &&t) { return emplace(std::move(t)); }
+  T *push_back(const T &t) { return emplace(t); }
 
   // emplace: construct T in-place from args
   template <typename... Args> T *emplace(Args &&...args) {

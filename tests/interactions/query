@@ -40,3 +40,10 @@ Command time:      <NUMBER> ms
 Number of answers: 3
 Command time:      <NUMBER> ms
 
+> QUERY T1 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+3,4,13
+3,4,14
+Number of answers: 4
+Command time:      <NUMBER> ms
