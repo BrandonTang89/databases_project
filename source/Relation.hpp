@@ -9,13 +9,11 @@
 class Relation {
 
 public:
-  StableVector<DataTuple, 1> tuples;
+  StableVector<DataTuple> tuples;
   std::unordered_map<int, Group> leftToRightIndex;
   std::unordered_map<int, Group> rightToLeftIndex;
-  std::vector<DataTuple *>
-      diagonalIndex; // index for tuples where left == right
+  Group diagonalIndex; // index for tuples where left == right
   SLock whole_rel_lock{};
-  SLock diagonal_lock{};
 
   /**
    * returns true on success, false if the transaction cannot acquire the

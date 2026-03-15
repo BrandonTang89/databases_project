@@ -8,7 +8,7 @@
 
 bool Relation::check_predicate_locks(const TID &tid, int left, int right) {
   if (left == right) {
-    if (!diagonal_lock.permits(tid)) {
+    if (!diagonalIndex.lock.permits(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);
       return false;
     }
@@ -69,7 +69,7 @@ DataTuple *Relation::ensure_tuple(int left, int right) {
     leftToRightIndex[left].insert(tp);
     rightToLeftIndex[right].insert(tp);
     if (left == right) {
-      diagonalIndex.push_back(tp);
+      diagonalIndex.insert(tp);
     }
     return tp;
   } else {

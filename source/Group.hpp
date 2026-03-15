@@ -10,8 +10,8 @@ struct Group {
   SLock lock;
 
   // Find the alive tuples with given left and right values
-  DataTuple* find(int left, int right) {
-    for (DataTuple *tp : tuples) {
+  DataTuple *find(int left, int right) {
+    for (DataTuple *tp : tuples) { // just as fast as a search with a flat_set
       if (tp->alive && tp->left == left && tp->right == right)
         return tp;
     }

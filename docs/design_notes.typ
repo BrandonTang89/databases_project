@@ -108,6 +108,7 @@ For each R(s, t) in the query:
       - W' = W x R.rightToLeftIndex(c)                      ---- 4
   - (x, y)
       - if x in S and y in S
+        - lock the whole relation
         - W' = W.filter(w -> (w.x, w.y) in R) acquiring tuple locks on R(w.x, w.y)  ---- 5
       - else if x in S
         - for each w in W

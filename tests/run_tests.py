@@ -41,6 +41,8 @@ def parse_interaction(path: Path) -> tuple[list[str], list[str]]:
     expected: list[str] = []
 
     for raw_line in path.read_text().splitlines():
+        if not raw_line.strip():
+            continue
         if raw_line.startswith("> "):
             inputs.append(raw_line[2:])   # strip the "> " prompt
         else:
