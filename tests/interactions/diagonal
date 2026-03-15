@@ -1,18 +1,30 @@
 > BEGIN T1
 Transaction T1 was created.
+
 > ADD T1 R R1.csv
 Relation R was created.
 Tuples added:      3
 Command time:      <NUMBER> ms
+
 > ADD T1 S S1.csv
 Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
-> DELETE T1 R R2.csv
-Tuples deleted:    1
+
+> ADD T1 D D1.csv
+Relation D was created.
+Tuples added:      3
 Command time:      <NUMBER> ms
-> DELETE T1 R R1.csv
-Tuples deleted:    2
+
+> QUERY T1 D(X,X)
+1
+2
+3
+Number of answers: 3
 Command time:      <NUMBER> ms
-> COMMIT T1
-Transaction T1 was committed.
+
+> QUERY T1 R(X,Y), D(X,X)
+1,2
+3,4
+Number of answers: 2
+Command time:      <NUMBER> ms

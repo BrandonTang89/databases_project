@@ -15,6 +15,6 @@ Resuming transaction T2.
 Tuples added:      3
 Command time:      <NUMBER> ms
 > COMMIT T2
-Transaction T2 committed.
+Transaction T2 was committed.
 > QUIT
 Goodbye!

@@ -16,12 +16,9 @@ private:
   ConflictGraph conflict_graph;
 
   // Call after control is returned from a transaction operation.
-  void on_control(const TID &tid, StatusCode status) {
-    if (status == StatusCode::SUSPENDED) {
-      std::println(out, "Transaction {} was suspended.", tid);
-      conflict_graph.process(tid);
-    }
-  }
+  void on_control(const TID &tid, StatusCode status);
+
+  void detect_and_resolve_deadlock(const TID &tid);
 
 public:
   Database(std::ostream &output_stream = std::cout) : out(output_stream) {}

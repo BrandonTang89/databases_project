@@ -4,6 +4,6 @@ Transaction T1 was created.
 ERROR: transaction is not suspended
 Current state: READY
 > COMMIT T1 
-Transaction T1 committed.
+Transaction T1 was committed.
 > QUIT
 Goodbye!

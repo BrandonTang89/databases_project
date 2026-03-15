@@ -1,0 +1,141 @@
+> BEGIN T1
+Transaction T1 was created.
+
+> ADD T1 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+
+> ADD T1 S S1.csv
+Relation S was created.
+Tuples added:      4
+Command time:      <NUMBER> ms
+
+> QUERY T1 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+3,4,13
+3,4,14
+Number of answers: 4
+Command time:      <NUMBER> ms
+
+> BEGIN T2
+Transaction T2 was created.
+
+> DELETE T2 R R2.csv
+Transaction T2 was suspended.
+
+> RESUME T2
+Resuming transaction T2.
+Transaction T2 was suspended.
+
+> COMMIT T1
+Transaction T1 was committed.
+
+> RESUME T2
+Resuming transaction T2.
+Tuples deleted:    1
+Command time:      <NUMBER> ms
+
+> QUERY T2 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+Number of answers: 2
+Command time:      <NUMBER> ms
+
+> BEGIN T3
+Transaction T3 was created.
+
+> QUERY T3 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+Transaction T3 was suspended.
+
+> COMMIT T2
+Transaction T2 was committed.
+
+> RESUME T3
+Resuming transaction T3.
+Number of answers: 2
+Command time:      <NUMBER> ms
+
+> COMMIT T3
+Transaction T3 was committed.
+
+> BEGIN T4
+Transaction T4 was created.
+
+> QUERY T4 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+Number of answers: 2
+Command time:      <NUMBER> ms
+
+> BEGIN T5
+Transaction T5 was created.
+
+> QUERY T5 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+Number of answers: 2
+Command time:      <NUMBER> ms
+
+> ADD T5 S S2.csv
+Transaction T5 was suspended.
+
+> BEGIN T6
+Transaction T6 was created.
+
+> DELETE T6 S S3.csv
+Tuples deleted:    1
+Command time:      <NUMBER> ms
+
+> COMMIT T6
+Transaction T6 was committed.
+
+> ROLLBACK T4
+Transaction T4 was rolled back.
+
+> RESUME T5
+Resuming transaction T5.
+Tuples added:      1
+Command time:      <NUMBER> ms
+
+> QUERY T5 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+5,6,15
+Number of answers: 3
+Command time:      <NUMBER> ms
+
+> COMMIT T5
+Transaction T5 was committed.
+
+> BEGIN T7
+Transaction T7 was created.
+
+> QUERY T7 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+5,6,15
+Number of answers: 3
+Command time:      <NUMBER> ms
+
+> BEGIN T8
+Transaction T8 was created.
+
+> QUERY T8 R(X,Y), S(Y,Z)
+1,2,11
+1,2,12
+5,6,15
+Number of answers: 3
+Command time:      <NUMBER> ms
+
+> ADD T8 S S4.csv
+Transaction T8 was suspended.
+
+> ADD T7 S S4.csv
+A deadlock was detected, and transaction T8 was rolled back.
+Tuples added:      1
+Command time:      <NUMBER> ms
+ 

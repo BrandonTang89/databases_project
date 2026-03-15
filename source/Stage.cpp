@@ -170,6 +170,11 @@ PipelineStatus Stage::next_group_filter() {
       assert(false && "invalid setup for group filter");
     }
 
+    // tp is null if the tuple doesn't exist in this group at all
+    if (!tp) {
+      continue;
+    }
+
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;

@@ -6,7 +6,6 @@
 #include <chrono>
 #include <flat_map>
 #include <iostream>
-#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -25,9 +24,11 @@ class Transaction {
   friend class Stage;
   std::ostream &out;
   TID tid;
+  size_t age{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
   std::unordered_set<Lock *> held_locks; // for cleanup on finish
+  std::flat_set<Lock*> required_locks; // for deadlock detection
 
   // Command start time
   std::chrono::high_resolution_clock::time_point command_start_time;
@@ -67,7 +68,7 @@ class Transaction {
 
 public:
   bool acquire(Lock &lock, LockMode mode);
-  Transaction(std::ostream &output_stream, const TID &transaction_id,
+  Transaction(std::ostream &output_stream, const TID &transaction_id, size_t _age,
               std::unordered_map<RelName, Relation> &rels);
   StatusCode start_edit(Relation *rel, const std::string &csv_file,
                         bool newAlive);

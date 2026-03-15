@@ -47,3 +47,11 @@ Command time:      <NUMBER> ms
 3,4,14
 Number of answers: 4
 Command time:      <NUMBER> ms
+
+> QUERY T1 S(Y,Z), R(X,Y) 
+2,11,1
+2,12,1
+4,13,3
+4,14,3
+Number of answers: 4
+Command time:      <NUMBER> ms

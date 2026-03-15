@@ -3,7 +3,9 @@
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
+#include <cstddef>
 #include <print>
+#include <set>
 #include <string>
 #include <unordered_map>
 
@@ -13,7 +15,9 @@ bool Database::begin_transaction(const TID &tid) {
     std::println(out, "ERROR: transaction {} already exists.", tid);
     return false; // Transaction with this TID already exists
   }
-  transactions.emplace(tid, Transaction(out, tid, relations));
+
+  size_t age = transactions.size();
+  transactions.emplace(tid, Transaction(out, tid, age, relations));
   std::println(out, "Transaction {} was created.", tid);
   return true;
 }
@@ -40,12 +44,10 @@ bool Database::rollback_transaction(const TID &tid) {
   return true;
 }
 
-// Returns false if the transaction does not exist or the file cannot be
-// opened.  On success prints the number of imported tuples and returns true.
 bool Database::add_data(const TID &tid, const RelName &rel_name,
                         const std::string &csv_file) {
-  auto transactionItr = transactions.find(tid);
-  if (transactionItr == transactions.end()) {
+  auto it = transactions.find(tid);
+  if (it == transactions.end()) {
     std::println(out, "ERROR: transaction {} does not exist.", tid);
     return false;
   }
@@ -56,15 +58,12 @@ bool Database::add_data(const TID &tid, const RelName &rel_name,
 
   Relation &rel = relations[rel_name]; // also creates if doesn't exist
 
-  StatusCode status = transactionItr->second.start_edit(&rel, csv_file, true);
+  StatusCode status = it->second.start_edit(&rel, csv_file, true);
   on_control(tid, status);
 
   return true;
 }
 
-// Returns false if the transaction does not exist, the relation does not
-// exist, or the file cannot be opened.  On success prints the number of
-// deleted tuples and returns true.
 bool Database::delete_data(const TID &tid, const RelName &rel_name,
                            const std::string &csv_file) {
   auto it = transactions.find(tid);
@@ -79,7 +78,8 @@ bool Database::delete_data(const TID &tid, const RelName &rel_name,
   }
 
   Relation &rel = relations[rel_name];
-  it->second.start_edit(&rel, csv_file, false);
+  StatusCode status = it->second.start_edit(&rel, csv_file, false);
+  on_control(tid, status);
   return true;
 }
 
@@ -90,7 +90,8 @@ bool Database::query(const TID &tid, std::vector<QueryAtom> body) {
     return false;
   }
 
-  it->second.start_query(std::move(body));
+  StatusCode status = it->second.start_query(std::move(body));
+  on_control(tid, status);
   return true;
 }
 
@@ -103,6 +104,21 @@ bool Database::resume_transaction(const TID &tid) {
   }
 
   Transaction &tx = it->second;
-  tx.resume();
+  StatusCode status = tx.resume();
+  on_control(tid, status);
+
   return true;
+}
+
+void Database::on_control(const TID &tid, StatusCode status) {
+  if (status == StatusCode::SUSPENDED) {
+    std::println(out, "Transaction {} was suspended.", tid);
+    detect_and_resolve_deadlock(tid);
+  }
+}
+
+void Database::detect_and_resolve_deadlock(const TID &tid) {
+  std::set<std::pair<TID, Lock *>> visited_tx;    // (tid, parent)
+  std::set<std::pair<Lock *, TID>> visited_locks; // (lock, parent)
+
 }

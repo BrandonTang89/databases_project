@@ -19,9 +19,10 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
   return false;
 }
 
-Transaction::Transaction(std::ostream &output_stream, const TID &transaction_id,
+Transaction::Transaction(std::ostream &output, const TID &transaction_id,
+                         size_t _age,
                          std::unordered_map<RelName, Relation> &rels)
-    : out(output_stream), tid(transaction_id), relations(rels) {}
+    : out(output), tid(transaction_id), age(_age), relations(rels) {}
 
 bool Transaction::is_suspended() const {
   return state == TransactionState::EXECUTING_QUERY ||
@@ -46,7 +47,7 @@ void Transaction::store_original(DataTuple *tp) {
 StatusCode Transaction::resume() {
   if (state == TransactionState::EXECUTING_QUERY) {
     println("Resuming transaction {}.", tid);
-    todo("implementresume query transaction");
+    return resume_query();
   } else if (state == TransactionState::EXECUTING_ADD ||
              state == TransactionState::EXECUTING_DELETE) {
     println("Resuming transaction {}.", tid);
@@ -91,6 +92,7 @@ StatusCode Transaction::resume_edit() {
 
   bool is_adding = (state == TransactionState::EXECUTING_ADD);
 
+  required_locks.emplace(&target_relation->whole_rel_lock);
   if (!target_relation->whole_rel_lock.permits(tid)) {
     debug("Transaction is waiting for whole_rel_lock");
     return StatusCode::SUSPENDED;
@@ -165,7 +167,7 @@ StatusCode Transaction::resume_query() {
   while (true) {
     PipelineStatus st = stages.back().next();
     if (st == PipelineStatus::OK) {
-      num_answers++;  
+      num_answers++;
       for (size_t i = 0; i < stages.back().num_output_vars; ++i) {
         std::cout << stages.back().get_out_channel()->at(i);
         if (i < stages.back().num_output_vars - 1) {
@@ -195,7 +197,7 @@ StatusCode Transaction::commit() {
   state = TransactionState::COMMITTED;
   release_locks();
 
-  std::println(out, "Transaction {} committed.", tid);
+  std::println(out, "Transaction {} was committed.", tid);
   return StatusCode::SUCCESS;
 }
 

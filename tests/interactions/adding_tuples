@@ -9,4 +9,4 @@ Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
 > COMMIT T1
-Transaction T1 committed.
+Transaction T1 was committed.

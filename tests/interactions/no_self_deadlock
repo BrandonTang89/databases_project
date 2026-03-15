@@ -8,6 +8,6 @@ Command time:      <NUMBER> ms
 Tuples added:      0
 Command time:      <NUMBER> ms
 > COMMIT T1
-Transaction T1 committed.
+Transaction T1 was committed.
 > QUIT
 Goodbye!
