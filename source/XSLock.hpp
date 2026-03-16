@@ -15,6 +15,14 @@ public:
   XSLock() = default;
   virtual ~XSLock() override = default;
 
+  bool permits_read(const TID &tid) const {
+    if (held_exclusively_) {
+      return is_held_by(tid);
+    } else {
+      return true; // any transaction can acquire in shared mode
+    }
+  }
+
   virtual bool acquire(const TID &tid, LockMode mode) override {
     if (mode == LockMode::EXCLUSIVE) {
       if (holder_count() >= 2) {
@@ -55,7 +63,7 @@ public:
   bool is_held_by(const TID &tid) const {
     return lock_holders_.find(tid) != lock_holders_.end();
   }
-  
+
   size_t holder_count() const { return lock_holders_.size(); }
   bool is_held_exclusively() const override { return held_exclusively_; }
 

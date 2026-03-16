@@ -177,9 +177,8 @@ PipelineStatus Stage::next_group_filter() {
     if (!tp) {
       continue;
     }
-
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
 
     if (tp->alive) {
@@ -217,8 +216,8 @@ PipelineStatus Stage::next_group_product() {
     }
 
     DataTuple *tp = group_iter->second;
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
 
     group_iter++;
@@ -244,8 +243,8 @@ PipelineStatus Stage::next_relation_filter() {
     uint32_t right_val = input->at(var2_idx);
     DataTuple *tp = rel->get_tuple(left_val, right_val);
     assert(tp && "tuple should always exist");
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
 
     if (tp->alive) {
@@ -279,8 +278,8 @@ PipelineStatus Stage::next_relation_product() {
     }
 
     DataTuple *tp = &*rel_iter;
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
     rel_iter++;
     if (!tp->alive) {
@@ -309,8 +308,8 @@ PipelineStatus Stage::next_join_left() {
 
   while (group_iter != group->tuples.end()) {
     DataTuple *tp = group_iter->second;
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
 
     group_iter++;
@@ -341,8 +340,8 @@ PipelineStatus Stage::next_join_right() {
 
   while (group_iter != group->tuples.end()) {
     DataTuple *tp = group_iter->second;
-    bool locked = tx.acquire(tp->lock, LockMode::SHARED);
-    if (!locked)
+    bool permitted = tp->lock.permits_read(tx.tid);
+    if (!permitted)
       return PipelineStatus::SUSPEND;
 
     group_iter++;

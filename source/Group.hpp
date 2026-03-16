@@ -18,16 +18,8 @@ struct Group {
     return (static_cast<uint64_t>(left) << 32) | right;
   }
 
-  // Find the alive tuples with given left and right values
-  DataTuple *findAlive(uint32_t left, uint32_t right) {
-    auto it = tuples.find(make_key(left, right));
-    if (it != tuples.end() && it->second->alive) {
-      return it->second;
-    } else {
-      return nullptr;
-    }
-  }
-
+  // Finds a tuple with the given left and right values, or returns nullptr if
+  // no such tuple exists.
   DataTuple *find(uint32_t left, uint32_t right) {
     auto it = tuples.find(make_key(left, right));
     if (it != tuples.end()) {
