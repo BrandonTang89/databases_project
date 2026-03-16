@@ -114,7 +114,7 @@ For each R(s, t) in the query:
         - for each w in W
           - acquire an S lock on the S lock for R(w.x, -)
           - W' = W' U ({w} times R.leftToRightIndex(w.x))
-      - else if y in S
+      - else if y in 
         - for each w in W
           - acquire an S lock on the S lock for R(-, w.y)
           - W' = W' U ({w} times R.rightToLeftIndex(w.y))

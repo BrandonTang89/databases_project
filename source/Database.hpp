@@ -1,5 +1,4 @@
 #pragma once
-#include "ConflictGraph.hpp"
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
@@ -13,7 +12,6 @@ private:
   std::ostream &out;
   std::unordered_map<std::string, Relation> relations;
   std::unordered_map<TID, Transaction> transactions;
-  ConflictGraph conflict_graph;
 
   // Call after control is returned from a transaction operation.
   void on_control(const TID &tid, StatusCode status);

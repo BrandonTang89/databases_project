@@ -6,7 +6,7 @@
 #include "Transaction.hpp"
 #include <unordered_map>
 
-bool Relation::check_predicate_locks(const TID &tid, int left, int right) {
+bool Relation::check_group_locks(const TID &tid, int left, int right) {
   if (left == right) {
     if (!diagonalIndex.lock.permits(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);
@@ -29,15 +29,25 @@ bool Relation::check_predicate_locks(const TID &tid, int left, int right) {
   return true;
 }
 
+void Relation::dep_group_locks(Transaction &tx, int left, int right) {
+  if (left == right) {
+    tx.required_locks.insert(&diagonalIndex.lock);
+  }
+  Group &leftGroup = leftToRightIndex[left];
+  Group &rightGroup = rightToLeftIndex[right];
+  tx.required_locks.insert(&leftGroup.lock);
+  tx.required_locks.insert(&rightGroup.lock);
+}
+
 bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
   // Only called by adding query
   const TID &tid = tx.tid;
   DataTuple *tp = ensure_tuple(left, right);
-  if (!check_predicate_locks(tid, left, right)) {
-    return false;
-  }
+  if (check_group_locks(tid, left, right) &&
+      tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
+    // Treat all the lock parts as "atomic"
+    // this ensures proper deadlock detection!
 
-  if (tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
     if (tp->alive == newAlive) {
       // tuple already correct
       return true;
@@ -48,7 +58,12 @@ bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
       return true;
     }
     return true;
+
   } else {
+    tx.required_locks.insert(&tp->lock); 
+    tx.required_locks.insert(&whole_rel_lock);
+    dep_group_locks(tx, left, right);
+
     debug("Transaction {} is waiting to acquire lock for tuple ({}, {})", tid,
           left, right);
     return false;

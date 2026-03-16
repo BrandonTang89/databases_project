@@ -1,5 +1,4 @@
 #include "Database.hpp"
-#include "ConflictGraph.hpp"
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"

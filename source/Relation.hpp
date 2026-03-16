@@ -37,5 +37,15 @@ private:
    */
   DataTuple *ensure_tuple(int left, int right);
 
-  bool check_predicate_locks(const TID &tid, int left, int right);
+  /**
+   * Checks if the transaction is permitted to modify the tuple with respect to
+   * the group locks.
+   */
+  bool check_group_locks(const TID &tid, int left, int right);
+
+  /**
+   * Adds the group locks that the transaction would need to pass to edit the
+   * tuple
+   */
+  void dep_group_locks(Transaction &tx, int left, int right);
 };

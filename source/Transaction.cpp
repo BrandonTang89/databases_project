@@ -16,7 +16,10 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
     held_locks.insert(&lock);
     return true;
   }
-  return false;
+  else {
+    required_locks.insert(&lock);
+    return false;
+  }
 }
 
 Transaction::Transaction(std::ostream &output, const TID &transaction_id,
