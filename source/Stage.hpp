@@ -46,6 +46,29 @@ public:
     JOIN_RIGHT,
   } type;
 
+  static std::string_view stage_type_name(StageType t) {
+    switch (t) {
+    case StageType::INITIAL:
+      return "INITIAL";
+    case StageType::CONST_CONST:
+      return "CONST_CONST";
+    case StageType::GROUP_FILTER:
+      return "GROUP_FILTER";
+    case StageType::GROUP_PRODUCT:
+      return "GROUP_PRODUCT";
+    case StageType::RELATION_FILTER:
+      return "RELATION_FILTER";
+    case StageType::RELATION_PRODUCT:
+      return "RELATION_PRODUCT";
+    case StageType::JOIN_LEFT:
+      return "JOIN_LEFT";
+    case StageType::JOIN_RIGHT:
+      return "JOIN_RIGHT";
+    }
+    assert(false && "invalid stage type");
+    return "";
+  }
+
   PipelineStatus next();
   PipelineStatus next_const_const();
   PipelineStatus next_group_filter();

@@ -82,6 +82,8 @@ Stage::Stage(size_t stage_index, Transaction &trx)
       }
     }
   }
+
+  debug("Stage {}: {}", stage_index, stage_type_name(type));
 }
 
 void Stage::group_setup() {
