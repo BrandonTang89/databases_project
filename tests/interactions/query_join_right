@@ -9,10 +9,12 @@ Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
 > QUERY T1 S(Y,Z), R(X,Y)
+<start perm>
 2,11,1
 2,12,1
 4,13,3
 4,14,3
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 > COMMIT T1

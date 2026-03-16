@@ -12,9 +12,11 @@ Tuples added:      4
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y)
+<start perm>
 1,2
 3,4
 5,6
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
@@ -24,34 +26,44 @@ Tuples added:      1
 Command time:      <NUMBER> ms
 
 > QUERY T1 T(X,Y)
+<start perm>
 3,4
+<end perm>
 Number of answers: 1
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y), T(X, Y)
+<start perm>
 3,4
+<end perm>
 Number of answers: 1
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y), T(Z, W)
+<start perm>
 1,2,3,4
 3,4,3,4
 5,6,3,4
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
 3,4,13
 3,4,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 
 > QUERY T1 S(Y,Z), R(X,Y) 
+<start perm>
 2,11,1
 2,12,1
 4,13,3
 4,14,3
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms

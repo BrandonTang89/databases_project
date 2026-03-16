@@ -13,8 +13,10 @@ Relation T was created.
 Tuples added:      1
 Command time:      <NUMBER> ms
 > QUERY T1 R(X,Y), S(Y,Z), T(X,Y)
+<start perm>
 3,4,13
 3,4,14
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 > COMMIT T1

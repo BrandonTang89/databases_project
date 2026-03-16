@@ -9,26 +9,36 @@ Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
 > QUERY T1 R(X,2)
+<start perm>
 1
+<end perm>
 Number of answers: 1
 Command time:      <NUMBER> ms
 > QUERY T1 R(1,Y)
+<start perm>
 2
+<end perm>
 Number of answers: 1
 Command time:      <NUMBER> ms
 > QUERY T1 R(1, Y), S(2, Z)
+<start perm>
 2,11
 2,12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 > QUERY T1 R(1, 2), S(2, Z)
+<start perm>
 11
 12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 > QUERY T1 S(2, Z), R(1, 2) 
+<start perm>
 11
 12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 > QUERY T1 S(2, Z), R(1, 3) 
@@ -38,9 +48,11 @@ Command time:      <NUMBER> ms
 Number of answers: 0
 Command time:      <NUMBER> ms
 > QUERY T1 R(X, 2), S(2, Y), S(4, Z)
+<start perm>
 1,11,13
 1,11,14
 1,12,13
 1,12,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms

@@ -17,14 +17,18 @@ Tuples added:      3
 Command time:      <NUMBER> ms
 
 > QUERY T1 D(X,X)
+<start perm>
 1
 2
 3
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y), D(X,X)
+<start perm>
 1,2
 3,4
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms

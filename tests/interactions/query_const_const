@@ -9,17 +9,21 @@ Relation S was created.
 Tuples added:      4
 Command time:      <NUMBER> ms
 > QUERY T1 R(1,2), S(Y,Z)
+<start perm>
 2,11
 2,12
 4,13
 4,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 > QUERY T1 R(5,6), S(Y,Z)
+<start perm>
 2,11
 2,12
 4,13
 4,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 > QUERY T1 R(2,3), S(Y,Z)

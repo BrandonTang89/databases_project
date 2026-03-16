@@ -21,15 +21,19 @@ Command time:      <NUMBER> ms
 Number of answers: 0
 Command time:      <NUMBER> ms
 > QUERY T1 R(1,2), S(Y,Z)
+<start perm>
 2,11
 2,12
 4,13
 4,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 > QUERY T1 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 > COMMIT T1

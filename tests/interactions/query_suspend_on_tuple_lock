@@ -19,8 +19,10 @@ Command time:      <NUMBER> ms
 > BEGIN T3
 Transaction T3 was created.
 > QUERY T3 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Transaction T3 was suspended.
 > COMMIT T2
 Transaction T2 was committed.

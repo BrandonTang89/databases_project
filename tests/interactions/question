@@ -12,10 +12,12 @@ Tuples added:      4
 Command time:      <NUMBER> ms
 
 > QUERY T1 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
 3,4,13
 3,4,14
+<end perm>
 Number of answers: 4
 Command time:      <NUMBER> ms
 
@@ -39,8 +41,10 @@ Tuples deleted:    1
 Command time:      <NUMBER> ms
 
 > QUERY T2 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 
@@ -48,8 +52,10 @@ Command time:      <NUMBER> ms
 Transaction T3 was created.
 
 > QUERY T3 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Transaction T3 was suspended.
 
 > COMMIT T2
@@ -69,8 +75,10 @@ Command time:      <NUMBER> ms
 Transaction T4 was created.
 
 > QUERY T4 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 
@@ -78,8 +86,10 @@ Command time:      <NUMBER> ms
 Transaction T5 was created.
 
 > QUERY T5 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
+<end perm>
 Number of answers: 2
 Command time:      <NUMBER> ms
 
@@ -107,9 +117,11 @@ Tuples added:      1
 Command time:      <NUMBER> ms
 
 > QUERY T5 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
 5,6,15
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
@@ -121,9 +133,11 @@ Command time:      <NUMBER> ms
 Transaction T7 was created.
 
 > QUERY T7 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
 5,6,15
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
@@ -131,9 +145,11 @@ Command time:      <NUMBER> ms
 Transaction T8 was created.
 
 > QUERY T8 R(X,Y), S(Y,Z)
+<start perm>
 1,2,11
 1,2,12
 5,6,15
+<end perm>
 Number of answers: 3
 Command time:      <NUMBER> ms
 
