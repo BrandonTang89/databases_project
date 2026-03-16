@@ -19,6 +19,10 @@
       in
       {
         devShells.default = pkgs.mkShell {
+          shellHook = ''
+            export NIX_ENFORCE_NO_NATIVE=0
+          '';
+
           packages = with pkgs; [
             gcc15
             cmake
@@ -59,9 +63,14 @@
               }
 
               project_root=$(find_project_root)
+              build_dir="$project_root/build/$preset"
 
               (
                 cd "$project_root"
+                # Build presets require an existing configured build directory.
+                if [ ! -f "$build_dir/CMakeCache.txt" ]; then
+                  cmake --preset "$preset"
+                fi
                 cmake --build --preset "$preset" -j 8
               )
             '')
@@ -100,9 +109,14 @@
               }
 
               project_root=$(find_project_root)
+              build_dir="$project_root/build/$preset"
 
               (
                 cd "$project_root"
+                # Build presets require an existing configured build directory.
+                if [ ! -f "$build_dir/CMakeCache.txt" ]; then
+                  cmake --preset "$preset"
+                fi
                 cmake --build --preset "$preset"
               )
 

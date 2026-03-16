@@ -21,8 +21,9 @@ add_compile_options(
     -Wformat=2
 )
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O2")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -fno-plt")
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)

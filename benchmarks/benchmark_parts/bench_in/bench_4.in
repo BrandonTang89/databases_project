@@ -1,31 +1,30 @@
-BEGIN T1
-DELETE T1 type updates/01-type
-BEGIN T2
-DELETE T2 memberOf updates/02-memberOf
-BEGIN T3
-DELETE T3 worksFor updates/03-worksFor
-BEGIN T4
-DELETE T4 takesCourse updates/04-takesCourse
-BEGIN T5
-DELETE T5 takesCourse updates/05-takesCourse
-BEGIN T6
-DELETE T6 type updates/06-type
-BEGIN T7
-DELETE T7 takesCourse updates/07-takesCourse
-BEGIN T8
-DELETE T8 takesCourse updates/08-takesCourse
-BEGIN T9
-DELETE T9 takesCourse updates/09-takesCourse
-BEGIN T10
-DELETE T10 memberOf updates/10-memberOf
-ROLLBACK T1
-ROLLBACK T2
-ROLLBACK T3
-ROLLBACK T4
-ROLLBACK T5
-ROLLBACK T6
-ROLLBACK T7
-ROLLBACK T8
-ROLLBACK T9
-ROLLBACK T10
-QUIT
+BEGIN TF1
+DELETE TF1 type updates/01-type
+BEGIN TF2
+DELETE TF2 memberOf updates/02-memberOf
+BEGIN TF3
+DELETE TF3 worksFor updates/03-worksFor
+BEGIN TF4
+DELETE TF4 takesCourse updates/04-takesCourse
+BEGIN TF5
+DELETE TF5 takesCourse updates/05-takesCourse
+BEGIN TF6
+DELETE TF6 type updates/06-type
+BEGIN TF7
+DELETE TF7 takesCourse updates/07-takesCourse
+BEGIN TF8
+DELETE TF8 takesCourse updates/08-takesCourse
+BEGIN TF9
+DELETE TF9 takesCourse updates/09-takesCourse
+BEGIN TF10
+DELETE TF10 memberOf updates/10-memberOf
+ROLLBACK TF1
+ROLLBACK TF2
+ROLLBACK TF3
+ROLLBACK TF4
+ROLLBACK TF5
+ROLLBACK TF6
+ROLLBACK TF7
+ROLLBACK TF8
+ROLLBACK TF9
+ROLLBACK TF10

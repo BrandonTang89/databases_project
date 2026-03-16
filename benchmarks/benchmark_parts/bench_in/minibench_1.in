@@ -1,0 +1,11 @@
+BEGIN T1
+ADD T1 memberOf data/memberOf
+ADD T1 subOrganizationOf data/subOrganizationOf
+ADD T1 takesCourse data/takesCourse
+ADD T1 type data/type
+ADD T1 undergraduateDegreeFrom data/undergraduateDegreeFrom
+COMMIT T1
+BEGIN T3
+QUERY T3 takesCourse(X,2633), type(X,2636)
+QUERY T3 type(Y,1208), subOrganizationOf(Z,Y), type(Z,741), undergraduateDegreeFrom(X,Y), type(X,2636), memberOf(X,Z)
+COMMIT T3

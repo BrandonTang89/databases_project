@@ -1,13 +1,12 @@
-BEGIN T1
-DELETE T1 type updates/01-type
-DELETE T1 memberOf updates/02-memberOf
-DELETE T1 worksFor updates/03-worksFor
-DELETE T1 takesCourse updates/04-takesCourse
-DELETE T1 takesCourse updates/05-takesCourse
-DELETE T1 type updates/06-type
-DELETE T1 takesCourse updates/07-takesCourse
-DELETE T1 takesCourse updates/08-takesCourse
-DELETE T1 takesCourse updates/09-takesCourse
-DELETE T1 memberOf updates/10-memberOf
-COMMIT T1
-QUIT
+BEGIN T5
+DELETE T5 type updates/01-type
+DELETE T5 memberOf updates/02-memberOf
+DELETE T5 worksFor updates/03-worksFor
+DELETE T5 takesCourse updates/04-takesCourse
+DELETE T5 takesCourse updates/05-takesCourse
+DELETE T5 type updates/06-type
+DELETE T5 takesCourse updates/07-takesCourse
+DELETE T5 takesCourse updates/08-takesCourse
+DELETE T5 takesCourse updates/09-takesCourse
+DELETE T5 memberOf updates/10-memberOf
+COMMIT T5

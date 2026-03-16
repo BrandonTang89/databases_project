@@ -1,24 +1,23 @@
-BEGIN T1
-ADD T1 advisor data/advisor
-ADD T1 degreeFrom data/degreeFrom
-ADD T1 doctoralDegreeFrom data/doctoralDegreeFrom
-ADD T1 emailAddress data/emailAddress
-ADD T1 hasAlumnus data/hasAlumnus
-ADD T1 headOf data/headOf
-ADD T1 imports data/imports
-ADD T1 mastersDegreeFrom data/mastersDegreeFrom
-ADD T1 member data/member
-ADD T1 memberOf data/memberOf
-ADD T1 name data/name
-ADD T1 publicationAuthor data/publicationAuthor
-ADD T1 researchInterest data/researchInterest
-ADD T1 subOrganizationOf data/subOrganizationOf
-ADD T1 takesCourse data/takesCourse
-ADD T1 teacherOf data/teacherOf
-ADD T1 teachingAssistantOf data/teachingAssistantOf
-ADD T1 telephone data/telephone
-ADD T1 type data/type
-ADD T1 undergraduateDegreeFrom data/undergraduateDegreeFrom
-ADD T1 worksFor data/worksFor
-COMMIT T1
-QUIT
+BEGIN T2
+ADD T2 advisor data/advisor
+ADD T2 degreeFrom data/degreeFrom
+ADD T2 doctoralDegreeFrom data/doctoralDegreeFrom
+ADD T2 emailAddress data/emailAddress
+ADD T2 hasAlumnus data/hasAlumnus
+ADD T2 headOf data/headOf
+ADD T2 imports data/imports
+ADD T2 mastersDegreeFrom data/mastersDegreeFrom
+ADD T2 member data/member
+ADD T2 memberOf data/memberOf
+ADD T2 name data/name
+ADD T2 publicationAuthor data/publicationAuthor
+ADD T2 researchInterest data/researchInterest
+ADD T2 subOrganizationOf data/subOrganizationOf
+ADD T2 takesCourse data/takesCourse
+ADD T2 teacherOf data/teacherOf
+ADD T2 teachingAssistantOf data/teachingAssistantOf
+ADD T2 telephone data/telephone
+ADD T2 type data/type
+ADD T2 undergraduateDegreeFrom data/undergraduateDegreeFrom
+ADD T2 worksFor data/worksFor
+COMMIT T2

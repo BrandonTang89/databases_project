@@ -13,6 +13,7 @@ private:
 
 public:
   XSLock() = default;
+  virtual ~XSLock() override = default;
 
   virtual bool acquire(const TID &tid, LockMode mode) override {
     if (mode == LockMode::EXCLUSIVE) {
@@ -54,14 +55,11 @@ public:
   bool is_held_by(const TID &tid) const {
     return lock_holders_.find(tid) != lock_holders_.end();
   }
-
+  
   size_t holder_count() const { return lock_holders_.size(); }
-
   bool is_held_exclusively() const override { return held_exclusively_; }
 
   const std::flat_set<TID> &current_holders() const override {
     return lock_holders_;
   }
-
-  virtual ~XSLock() override = default;
 };

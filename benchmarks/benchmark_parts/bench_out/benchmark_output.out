@@ -1,0 +1,111 @@
+Transaction T1 was created.
+Relation advisor was created.
+Tuples added:      411501
+Command time:      297 ms
+Relation degreeFrom was created.
+Tuples added:      469226
+Command time:      246 ms
+Relation doctoralDegreeFrom was created.
+Tuples added:      72302
+Command time:      27 ms
+Relation emailAddress was created.
+Tuples added:      1120834
+Command time:      1045 ms
+Relation hasAlumnus was created.
+Tuples added:      469226
+Command time:      265 ms
+Relation headOf was created.
+Tuples added:      2007
+Command time:      0 ms
+Relation imports was created.
+Tuples added:      1
+Command time:      0 ms
+Relation mastersDegreeFrom was created.
+Tuples added:      72302
+Command time:      29 ms
+Relation member was created.
+Tuples added:      1120834
+Command time:      1185 ms
+Relation memberOf was created.
+Tuples added:      1120834
+Command time:      554 ms
+Relation name was created.
+Tuples added:      2148830
+Command time:      1814 ms
+Relation publicationAuthor was created.
+Tuples added:      1442184
+Command time:      642 ms
+Relation researchInterest was created.
+Tuples added:      60268
+Command time:      18 ms
+Relation subOrganizationOf was created.
+Tuples added:      62079
+Command time:      18 ms
+Relation takesCourse was created.
+Tuples added:      2894749
+Command time:      1077 ms
+Relation teacherOf was created.
+Tuples added:      217148
+Command time:      117 ms
+Relation teachingAssistantOf was created.
+Tuples added:      55994
+Command time:      30 ms
+Relation telephone was created.
+Tuples added:      1120834
+Command time:      1734 ms
+Relation type was created.
+Tuples added:      5043638
+Command time:      1721 ms
+Relation undergraduateDegreeFrom was created.
+Tuples added:      324864
+Command time:      142 ms
+Relation worksFor was created.
+Tuples added:      72302
+Command time:      26 ms
+Transaction T1 was rolled back.
+Command time:      1563 ms
+Transaction T2 was created.
+Tuples added:      411501
+Command time:      1205 ms
+Tuples added:      469226
+Command time:      267 ms
+Tuples added:      72302
+Command time:      28 ms
+Tuples added:      1120834
+Command time:      659 ms
+Tuples added:      469226
+Command time:      502 ms
+Tuples added:      2007
+Command time:      0 ms
+Tuples added:      1
+Command time:      0 ms
+Tuples added:      72302
+Command time:      32 ms
+Tuples added:      1120834
+Command time:      1806 ms
+Tuples added:      1120834
+Command time:      502 ms
+Tuples added:      2148830
+Command time:      1827 ms
+Tuples added:      1442184
+Command time:      545 ms
+Tuples added:      60268
+Command time:      21 ms
+Tuples added:      62079
+Command time:      19 ms
+Tuples added:      2894749
+Command time:      1346 ms
+Tuples added:      217148
+Command time:      111 ms
+Tuples added:      55994
+Command time:      33 ms
+Tuples added:      1120834
+Command time:      3872 ms
+Tuples added:      5043638
+Command time:      1848 ms
+Tuples added:      324864
+Command time:      131 ms
+Tuples added:      72302
+Command time:      30 ms
+Transaction T2 was committed.
+Command time:      1560 ms

@@ -21,4 +21,3 @@ ADD T1 type data/type
 ADD T1 undergraduateDegreeFrom data/undergraduateDegreeFrom
 ADD T1 worksFor data/worksFor
 ROLLBACK T1
-QUIT

@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
 """
-execute_part.py  <bench_N.in>
+execute_part.py  [options] <bench_N.in> [<bench_M.in> ...]
 
-Builds the release binary, then runs it on the given input file and writes
-the output to the corresponding bench_N.out file in the bench_out directory.
+Builds the release binary, concatenates the given input files in order, runs
+the binary on the combined input, and writes the output file.
 
-Usage:
-    python3 execute_part.py bench_in/bench_1.in
-    python3 execute_part.py bench_1.in   # also accepted
+Single input file:
+    The output is named bench_N.out and placed in benchmark_parts/bench_out/.
 
-The output file is placed in bench_out/bench_N.out alongside this script.
+Multiple input files:
+    The output defaults to benchmark_parts/bench_out/benchmark_output.out.
+    Use -o / --output to override the output path in either case.
+
 The binary is run with its CWD set to the DBSI-2026 data directory so that
 paths like data/<rel>, updates/<file>, and queries/<file> resolve correctly.
 """
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-WORKSPACE = SCRIPT_DIR.parent  # .../databases_project
-BINARY = WORKSPACE / "build" / "release" / "databases_project"
-DATA_DIR = SCRIPT_DIR / "DBSI-2026"  # CWD for the binary
-BENCH_IN = SCRIPT_DIR / "benchmark_parts" / "bench_in"
-BENCH_OUT = SCRIPT_DIR / "benchmark_parts" / "bench_out"
+WORKSPACE  = SCRIPT_DIR.parent                          # .../databases_project
+BINARY     = WORKSPACE / "build" / "release" / "databases_project"
+DATA_DIR   = SCRIPT_DIR / "DBSI-2026"                  # CWD for the binary
+BENCH_IN   = SCRIPT_DIR / "benchmark_parts" / "bench_in"
+BENCH_OUT  = SCRIPT_DIR / "benchmark_parts" / "bench_out"
 
 
 def build_release() -> None:
@@ -39,12 +42,13 @@ def build_release() -> None:
     print("Build succeeded.", flush=True)
 
 
-def run_benchmark(input_path: Path, output_path: Path) -> None:
-    print(f"Running {input_path.name} -> {output_path.name} ...", flush=True)
+def run_benchmark(input_paths: list[Path], output_path: Path) -> None:
+    names = ", ".join(p.name for p in input_paths)
+    print(f"Running [{names}] -> {output_path.name} ...", flush=True)
 
-    with input_path.open("r") as fin:
-        commands = fin.read()
+    commands = "".join(p.read_text() for p in input_paths)
 
+    print(f"Commands to execute:\n{commands}", flush=True)
     result = subprocess.run(
         [str(BINARY)],
         input=commands,
@@ -68,7 +72,6 @@ def resolve_input(arg: str) -> Path:
     p = Path(arg)
     if p.exists():
         return p.resolve()
-    # Try in bench_in directory
     candidate = BENCH_IN / p.name
     if candidate.exists():
         return candidate
@@ -76,19 +79,36 @@ def resolve_input(arg: str) -> Path:
     sys.exit(1)
 
 
+def default_output(input_paths: list[Path]) -> Path:
+    if len(input_paths) == 1:
+        return BENCH_OUT / (input_paths[0].stem + ".out")
+    return BENCH_OUT / "benchmark_output.out"
+
+
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(f"Usage: python3 {Path(__file__).name} <bench_N.in>", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Build release binary and run benchmark input file(s)."
+    )
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        metavar="bench_N.in",
+        help="One or more input files (concatenated in order).",
+    )
+    parser.add_argument(
+        "-o", "--output",
+        metavar="FILE",
+        default=None,
+        help="Output file path (default: bench_N.out for a single input, "
+             "benchmark_output.out for multiple).",
+    )
+    args = parser.parse_args()
 
-    input_path = resolve_input(sys.argv[1])
-
-    # Derive output path: replace .in with .out, place in bench_out/
-    out_name = input_path.stem + ".out"
-    output_path = BENCH_OUT / out_name
+    input_paths = [resolve_input(a) for a in args.inputs]
+    output_path = Path(args.output) if args.output else default_output(input_paths)
 
     build_release()
-    run_benchmark(input_path, output_path)
+    run_benchmark(input_paths, output_path)
 
 
 if __name__ == "__main__":
