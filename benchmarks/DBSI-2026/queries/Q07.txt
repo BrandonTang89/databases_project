@@ -1,0 +1,1 @@
+teacherOf(43,Y), type(Y,1210), takesCourse(X,Y), type(X,2637)

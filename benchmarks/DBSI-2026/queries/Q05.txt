@@ -1,0 +1,1 @@
+memberOf(X,4), type(X,19)

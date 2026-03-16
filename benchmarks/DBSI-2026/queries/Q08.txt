@@ -1,0 +1,1 @@
+subOrganizationOf(Y,740), type(Y,741), memberOf(X,Y), type(X,2637), emailAddress(X,Z)

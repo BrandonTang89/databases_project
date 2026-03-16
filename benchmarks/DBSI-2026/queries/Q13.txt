@@ -1,0 +1,1 @@
+hasAlumnus(740,X), type(X,19)

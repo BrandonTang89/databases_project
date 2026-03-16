@@ -1,0 +1,1 @@
+publicationAuthor(X,3), type(X,2629)

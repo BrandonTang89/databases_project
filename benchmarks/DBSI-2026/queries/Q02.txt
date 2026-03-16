@@ -1,0 +1,1 @@
+type(Y,1208), subOrganizationOf(Z,Y), type(Z,741), undergraduateDegreeFrom(X,Y), type(X,2636), memberOf(X,Z)

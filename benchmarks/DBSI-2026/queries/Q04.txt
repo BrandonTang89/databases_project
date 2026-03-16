@@ -1,0 +1,1 @@
+worksFor(X,4), type(X,20), emailAddress(X,Y2), telephone(X,Y3), name(X,Y1)
