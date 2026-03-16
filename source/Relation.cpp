@@ -81,7 +81,7 @@ DataTuple *Relation::ensure_tuple(uint32_t left, uint32_t right) {
   if (!tp) {
     // tuple does not exist, so we need to add it
     tp = tuples.emplace(left, right);
-    leftToRightIndex[left].insert(tp);
+    group.insert(tp);
     rightToLeftIndex[right].insert(tp);
     if (left == right) {
       diagonalIndex.insert(tp);

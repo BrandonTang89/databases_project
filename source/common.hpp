@@ -8,6 +8,12 @@
 
 constexpr bool enable_trace = false;
 
+#ifndef NDEBUG
+constexpr bool enable_debug = true;
+#else
+constexpr bool enable_debug = false;
+#endif
+
 class Database;
 class Relation;
 class Transaction;
@@ -69,8 +75,10 @@ struct Channel {
 
 template <typename... Args>
 void debug(std::format_string<Args...> fmt, Args &&...args) {
-  std::cerr << "[DEBUG] ";
-  std::println(std::cerr, fmt, std::forward<Args>(args)...);
+  if constexpr (enable_debug) {
+    std::cerr << "[DEBUG] ";
+    std::println(std::cerr, fmt, std::forward<Args>(args)...);
+  }
 }
 
 template <typename... Args>

@@ -28,6 +28,9 @@
             cmake
             llvmPackages_22.clang-tools
             ninja
+            python3
+            perf
+            flamegraph
             (writeShellScriptBin "build" ''
               set -eu
 

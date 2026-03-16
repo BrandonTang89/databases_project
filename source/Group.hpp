@@ -15,7 +15,7 @@ struct Group {
   SLock lock;
 
   inline uint64_t make_key(uint32_t left, uint32_t right) const {
-    return (static_cast<uint64_t>(left) << 32) | (right & 0xFFFFFFFF);
+    return (static_cast<uint64_t>(left) << 32) | right;
   }
 
   // Find the alive tuples with given left and right values
