@@ -1,5 +1,8 @@
 # Databases Mini-Project
 
+## Documentation
+The report is provided at [docs/ProjectReport_1075201.pdf](docs/ProjectReport_1075201.pdf).
+
 ## Build and Run
 ### Build and Run with Nix
 To ensure reproducibility, I chose to use [Nix](https://nixos.org/) to manage dependencies and build the project.
@@ -17,7 +20,8 @@ Now, we just use
 These internally call the relevant CMake build commands.
 
 ### Build and Run without Nix
-I believe if you have the right GCC version installed, the following should also just work:
+I believe if you have the right GCC version (15.2.0) installed, the following should also just work:
+- `cmake --preset release` to configure the project
 - `cmake --build --preset release -j 8` to build the project
 - `./build/release/databases_project` to run the project
 
@@ -34,9 +38,53 @@ build debug && python3 -m tests.run_tests add_add_interact # test this interacti
 build debug && python3 -m tests.run_tests all # special command to run all simulations
 ```
 
+These tests have 2 special features beyond line for line matching
+- Allowing permutations of lines to account for possibly swapped outputs (e.g. for query results)
+- Allowing for any number for the latency in the output, since this can vary widely across runs and machines
 
-## To Do
-- Lock whole relation (special case for the first relation of a query)
-- The rest of the matches of the query atom currently being processed
-- Testing for query
-- Everything to do with the conflict graph
+## Benchmarking
+The project includes a benchmarking suite located in the `benchmarks/` directory. This suite allows for measuring the performance of the database on various operations including imports, queries, and deletions, with support for profiling.
+
+### Benchmarking Workflow
+The benchmarking workflow (as described in the assignment) involves executing a sequence of 6 steps:
+1. **Import (Step 1):** Add all relations and then rollback.
+2. **Import (Step 2):** Add all relations and then commit.
+3. **Query (Step 3):** Run 14 queries and then commit.
+4. **Delete (Step 4):** Delete relations and then rollback.
+5. **Delete (Step 5):** Delete relations and then commit.
+6. **Query (Step 6):** Run 14 queries and then commit.
+
+To run the full benchmark:
+```bash
+python3 benchmarks/execute_part.py benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
+```
+Or for a quick test using the smaller minibench which just does some loads and queries:
+```bash
+python3 benchmarks/execute_part.py benchmarks/benchmark_parts/bench_in/minibench_1.in
+```
+
+This will:
+- Build the release binary.
+- Concatenate the input files.
+- Run the binary and output the results to `benchmarks/benchmark_parts/bench_out/benchmark_output.out`.
+
+### Report Generation
+To generate a Typst-formatted table summary of the benchmark results:
+```bash
+python3 benchmarks/produce_report_table.py
+```
+This script parses the benchmark output and calculates the time taken for each operation.
+
+### Profiling
+The `execute_part.py` script also supports profiling using Linux `perf`:
+```bash
+python3 benchmarks/execute_part.py --profile benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
+```
+When `--profile` is used, it captures performance data and, if [FlameGraph](https://github.com/brendangregg/FlameGraph) tools are available in your PATH or provided via `--flamegraph-dir`, it automatically generates a flamegraph SVG in `benchmarks/benchmark_parts/bench_out/profiles/`.
+
+Both `perf` and `flamegraph` are provided in the Nix development environment, so you can use them without additional setup when using Nix.
+
+### Directory Structure
+- `benchmarks/benchmark_parts/bench_in/`: Contains input files for each step of the benchmark.
+- `benchmarks/benchmark_parts/bench_out/`: Contains benchmark results and profiles.
+- `benchmarks/DBSI-2026/`: Contains the data, queries, and updates used by the benchmarks.
