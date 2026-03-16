@@ -1,0 +1,67 @@
+Transaction T1 was created.
+Relation advisor was created.
+Tuples added:      411501
+Command time:      305 ms
+Relation degreeFrom was created.
+Tuples added:      469226
+Command time:      252 ms
+Relation doctoralDegreeFrom was created.
+Tuples added:      72302
+Command time:      29 ms
+Relation emailAddress was created.
+Tuples added:      1120834
+Command time:      1082 ms
+Relation hasAlumnus was created.
+Tuples added:      469226
+Command time:      289 ms
+Relation headOf was created.
+Tuples added:      2007
+Command time:      0 ms
+Relation imports was created.
+Tuples added:      1
+Command time:      0 ms
+Relation mastersDegreeFrom was created.
+Tuples added:      72302
+Command time:      32 ms
+Relation member was created.
+Tuples added:      1120834
+Command time:      1256 ms
+Relation memberOf was created.
+Tuples added:      1120834
+Command time:      590 ms
+Relation name was created.
+Tuples added:      2148830
+Command time:      1918 ms
+Relation publicationAuthor was created.
+Tuples added:      1442184
+Command time:      692 ms
+Relation researchInterest was created.
+Tuples added:      60268
+Command time:      20 ms
+Relation subOrganizationOf was created.
+Tuples added:      62079
+Command time:      18 ms
+Relation takesCourse was created.
+Tuples added:      2894749
+Command time:      1160 ms
+Relation teacherOf was created.
+Tuples added:      217148
+Command time:      156 ms
+Relation teachingAssistantOf was created.
+Tuples added:      55994
+Command time:      61 ms
+Relation telephone was created.
+Tuples added:      1120834
+Command time:      1937 ms
+Relation type was created.
+Tuples added:      5043638
+Command time:      1831 ms
+Relation undergraduateDegreeFrom was created.
+Tuples added:      324864
+Command time:      155 ms
+Relation worksFor was created.
+Tuples added:      72302
+Command time:      25 ms
+Transaction T1 was rolled back.
+Command time:      1649 ms
+Goodbye!

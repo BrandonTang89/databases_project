@@ -6,7 +6,7 @@
 
 struct Group {
   // DTI: all tuples are either (_, c) or (c, _) for some constant c
-  StableVector<DataTuple *> tuples;
+  StableVector<DataTuple *, 8> tuples;
   SLock lock;
 
   // Find the alive tuples with given left and right values

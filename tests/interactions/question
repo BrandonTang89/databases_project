@@ -31,6 +31,7 @@ Transaction T2 was suspended.
 
 > COMMIT T1
 Transaction T1 was committed.
+Command time:      <NUMBER> ms
 
 > RESUME T2
 Resuming transaction T2.
@@ -53,6 +54,7 @@ Transaction T3 was suspended.
 
 > COMMIT T2
 Transaction T2 was committed.
+Command time:      <NUMBER> ms
 
 > RESUME T3
 Resuming transaction T3.
@@ -61,6 +63,7 @@ Command time:      <NUMBER> ms
 
 > COMMIT T3
 Transaction T3 was committed.
+Command time:      <NUMBER> ms
 
 > BEGIN T4
 Transaction T4 was created.
@@ -92,9 +95,11 @@ Command time:      <NUMBER> ms
 
 > COMMIT T6
 Transaction T6 was committed.
+Command time:      <NUMBER> ms
 
 > ROLLBACK T4
 Transaction T4 was rolled back.
+Command time:      <NUMBER> ms
 
 > RESUME T5
 Resuming transaction T5.
@@ -110,6 +115,7 @@ Command time:      <NUMBER> ms
 
 > COMMIT T5
 Transaction T5 was committed.
+Command time:      <NUMBER> ms
 
 > BEGIN T7
 Transaction T7 was created.

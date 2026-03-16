@@ -10,6 +10,7 @@ Tuples added:      4
 Command time:      <NUMBER> ms
 > COMMIT T1
 Transaction T1 was committed.
+Command time:      <NUMBER> ms
 > BEGIN T2
 Transaction T2 was created.
 > DELETE T2 R R2.csv
@@ -23,11 +24,13 @@ Transaction T3 was created.
 Transaction T3 was suspended.
 > COMMIT T2
 Transaction T2 was committed.
+Command time:      <NUMBER> ms
 > RESUME T3
 Resuming transaction T3.
 Number of answers: 2
 Command time:      <NUMBER> ms
 > COMMIT T3
 Transaction T3 was committed.
+Command time:      <NUMBER> ms
 > QUIT
 Goodbye!

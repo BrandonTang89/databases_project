@@ -10,11 +10,13 @@ Command time:      <NUMBER> ms
 Transaction T2 was suspended.
 > ROLLBACK T1
 Transaction T1 was rolled back.
+Command time:      <NUMBER> ms
 > RESUME T2
 Resuming transaction T2.
 Tuples added:      3
 Command time:      <NUMBER> ms
 > COMMIT T2
 Transaction T2 was committed.
+Command time:      <NUMBER> ms
 > QUIT
 Goodbye!

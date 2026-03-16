@@ -1,13 +1,11 @@
 #pragma once
 
-#include "Lock.hpp"
 #include "common.hpp"
-#include <map>
-#include <set>
+#include <unordered_map>
 
 class DeadlockDetector {
   enum class VisitState { UNVISITED, VISITING, VISITED };
-  std::map<TID, VisitState> visited_tx; // (tid, parent)
+  std::unordered_map<TID, VisitState> visited_tx; // (tid, parent)
   std::unordered_map<TID, Transaction> &transactions;
   std::vector<TID> cycle; // populated if a cycle is detected
 

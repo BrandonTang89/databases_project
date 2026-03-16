@@ -9,7 +9,7 @@
 class Relation {
 
 public:
-  StableVector<DataTuple> tuples;
+  StableVector<DataTuple, 2048> tuples;
   std::unordered_map<int, Group> leftToRightIndex;
   std::unordered_map<int, Group> rightToLeftIndex;
   Group diagonalIndex; // index for tuples where left == right

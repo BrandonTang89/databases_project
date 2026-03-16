@@ -126,7 +126,8 @@ PipelineStatus Stage::next() {
   case StageType::JOIN_RIGHT:
     return next_join_right();
   }
-  assert(false && "unreachable");
+  assert(false && "invalid stage type");
+  return PipelineStatus::FINISHED; // to silence compiler warning
 }
 
 PipelineStatus Stage::next_const_const() {
@@ -158,7 +159,7 @@ PipelineStatus Stage::next_group_filter() {
     }
 
     // Check the new input
-    DataTuple *tp;
+    DataTuple *tp{};
     if (left_is_const && right_is_var) {
       tp = group->find(const_val, input->at(var_idx));
     } else if (left_is_var && right_is_const) {

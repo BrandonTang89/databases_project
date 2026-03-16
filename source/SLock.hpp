@@ -12,7 +12,7 @@ private:
 public:
   SLock() = default;
 
-  virtual bool acquire(const TID &tid, LockMode mode) override {
+  virtual bool acquire(const TID &tid, [[maybe_unused]] LockMode mode) override {
     assert(mode == LockMode::SHARED);
     // Add tid to lock_holders_ if it's not already present.
     if (!is_held_by(tid)) {

@@ -1,0 +1,17 @@
+BEGIN T1
+QUERY T1 takesCourse(X,2633), type(X,2636)
+QUERY T1 type(Y,1208), subOrganizationOf(Z,Y), type(Z,741), undergraduateDegreeFrom(X,Y), type(X,2636), memberOf(X,Z)
+QUERY T1 publicationAuthor(X,3), type(X,2629)
+QUERY T1 worksFor(X,4), type(X,20), emailAddress(X,Y2), telephone(X,Y3), name(X,Y1)
+QUERY T1 memberOf(X,4), type(X,19)
+QUERY T1 type(X,2637)
+QUERY T1 teacherOf(43,Y), type(Y,1210), takesCourse(X,Y), type(X,2637)
+QUERY T1 subOrganizationOf(Y,740), type(Y,741), memberOf(X,Y), type(X,2637), emailAddress(X,Z)
+QUERY T1 type(Y,18), teacherOf(Y,Z), type(Z,1210), advisor(X,Y), type(X,2637), takesCourse(X,Z)
+QUERY T1 takesCourse(X,2633), type(X,2637)
+QUERY T1 subOrganizationOf(X,740), type(X,96510)
+QUERY T1 subOrganizationOf(Y,740), type(Y,741), worksFor(X,Y), type(X,24908)
+QUERY T1 hasAlumnus(740,X), type(X,19)
+QUERY T1 type(X,96534)
+COMMIT T1
+QUIT

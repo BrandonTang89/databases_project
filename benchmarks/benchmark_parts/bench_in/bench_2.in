@@ -1,0 +1,24 @@
+BEGIN T1
+ADD T1 advisor data/advisor
+ADD T1 degreeFrom data/degreeFrom
+ADD T1 doctoralDegreeFrom data/doctoralDegreeFrom
+ADD T1 emailAddress data/emailAddress
+ADD T1 hasAlumnus data/hasAlumnus
+ADD T1 headOf data/headOf
+ADD T1 imports data/imports
+ADD T1 mastersDegreeFrom data/mastersDegreeFrom
+ADD T1 member data/member
+ADD T1 memberOf data/memberOf
+ADD T1 name data/name
+ADD T1 publicationAuthor data/publicationAuthor
+ADD T1 researchInterest data/researchInterest
+ADD T1 subOrganizationOf data/subOrganizationOf
+ADD T1 takesCourse data/takesCourse
+ADD T1 teacherOf data/teacherOf
+ADD T1 teachingAssistantOf data/teachingAssistantOf
+ADD T1 telephone data/telephone
+ADD T1 type data/type
+ADD T1 undergraduateDegreeFrom data/undergraduateDegreeFrom
+ADD T1 worksFor data/worksFor
+COMMIT T1
+QUIT

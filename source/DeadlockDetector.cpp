@@ -37,7 +37,7 @@ std::optional<TID> DeadlockDetector::detect_cycle(const TID &start_tid) {
     // locate the youngest transaction in the cycle to abort
     TID victim = cycle[0];
     for (const TID &tid : cycle) {
-      if (transactions.at(tid).startTime > transactions.at(victim).startTime) {
+      if (transactions.at(tid).txBornAt > transactions.at(victim).txBornAt) {
         victim = tid;
       }
     }

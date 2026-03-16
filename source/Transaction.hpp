@@ -26,7 +26,7 @@ class Transaction {
   friend class DeadlockDetector;
   std::ostream &out;
   TID tid;
-  size_t startTime{0};
+  size_t txBornAt{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
   std::unordered_set<Lock *> held_locks; // for cleanup on finish

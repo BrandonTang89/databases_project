@@ -24,7 +24,7 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
 Transaction::Transaction(std::ostream &output, const TID &transaction_id,
                          size_t _age,
                          std::unordered_map<RelName, Relation> &rels)
-    : out(output), tid(transaction_id), startTime(_age), relations(rels) {}
+    : out(output), tid(transaction_id), txBornAt(_age), relations(rels) {}
 
 bool Transaction::is_suspended() const {
   return state == TransactionState::EXECUTING_QUERY ||
@@ -202,14 +202,20 @@ StatusCode Transaction::commit() {
     return is_suspended() ? StatusCode::SUSPENDED : StatusCode::SUCCESS;
   }
   state = TransactionState::COMMITTED;
+  command_start_time = std::chrono::high_resolution_clock::now();
   release_locks();
-
   std::println(out, "Transaction {} was committed.", tid);
+
+  print_time_taken();
   return StatusCode::SUCCESS;
 }
 
 StatusCode Transaction::rollback(bool silent_abort) {
   state = TransactionState::ABORTED;
+  if (!silent_abort) {
+    // don't clobber the time if this is an internal abort
+    command_start_time = std::chrono::high_resolution_clock::now();
+  }
 
   // Rollback any modifications
   for (auto &[tp, original] : original_alive) {
@@ -219,6 +225,7 @@ StatusCode Transaction::rollback(bool silent_abort) {
 
   if (!silent_abort) { // otherwise don't need to say
     std::println(out, "Transaction {} was rolled back.", tid);
+    print_time_taken();
   }
   return StatusCode::SUCCESS;
 }

@@ -17,5 +17,6 @@ Number of answers: 4
 Command time:      <NUMBER> ms
 > COMMIT T1
 Transaction T1 was committed.
+Command time:      <NUMBER> ms
 > QUIT
 Goodbye!
