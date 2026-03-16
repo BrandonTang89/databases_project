@@ -15,8 +15,7 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
   if (lock.acquire(tid, mode)) {
     held_locks.insert(&lock);
     return true;
-  }
-  else {
+  } else {
     required_locks.insert(&lock);
     return false;
   }
@@ -25,7 +24,7 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
 Transaction::Transaction(std::ostream &output, const TID &transaction_id,
                          size_t _age,
                          std::unordered_map<RelName, Relation> &rels)
-    : out(output), tid(transaction_id), age(_age), relations(rels) {}
+    : out(output), tid(transaction_id), startTime(_age), relations(rels) {}
 
 bool Transaction::is_suspended() const {
   return state == TransactionState::EXECUTING_QUERY ||
@@ -47,13 +46,18 @@ void Transaction::store_original(DataTuple *tp) {
   }
 }
 
-StatusCode Transaction::resume() {
+StatusCode Transaction::resume(bool silent_resume) {
+  required_locks.clear();
   if (state == TransactionState::EXECUTING_QUERY) {
-    println("Resuming transaction {}.", tid);
+    if (!silent_resume) {
+      println("Resuming transaction {}.", tid);
+    }
     return resume_query();
   } else if (state == TransactionState::EXECUTING_ADD ||
              state == TransactionState::EXECUTING_DELETE) {
-    println("Resuming transaction {}.", tid);
+    if (!silent_resume) {
+      std::println(out, "Resuming transaction {}.", tid);
+    }
     return resume_edit();
   } else {
     std::println(out, "ERROR: transaction is not suspended");
@@ -204,12 +208,7 @@ StatusCode Transaction::commit() {
   return StatusCode::SUCCESS;
 }
 
-StatusCode Transaction::rollback() {
-  if (state != TransactionState::READY) {
-    std::println(out, "ERROR: transaction is not in READY state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
-    return is_suspended() ? StatusCode::SUSPENDED : StatusCode::SUCCESS;
-  }
+StatusCode Transaction::rollback(bool silent_abort) {
   state = TransactionState::ABORTED;
 
   // Rollback any modifications
@@ -218,6 +217,8 @@ StatusCode Transaction::rollback() {
   }
   release_locks();
 
-  std::println(out, "Transaction {} was rolled back.", tid);
+  if (!silent_abort) { // otherwise don't need to say
+    std::println(out, "Transaction {} was rolled back.", tid);
+  }
   return StatusCode::SUCCESS;
 }

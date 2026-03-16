@@ -1,4 +1,5 @@
 #pragma once
+#include "DeadlockDetector.hpp"
 #include "Relation.hpp"
 #include "Transaction.hpp"
 #include "common.hpp"
@@ -12,22 +13,23 @@ private:
   std::ostream &out;
   std::unordered_map<std::string, Relation> relations;
   std::unordered_map<TID, Transaction> transactions;
-
-  // Call after control is returned from a transaction operation.
+  DeadlockDetector deadlock_detector{transactions};
+  
+  /**Call after control is returned from a transaction operation.
+   * deals with deadlock detection
+   */
   void on_control(const TID &tid, StatusCode status);
-
-  void detect_and_resolve_deadlock(const TID &tid);
 
 public:
   Database(std::ostream &output_stream = std::cout) : out(output_stream) {}
 
   bool begin_transaction(const TID &tid);
 
-  bool resume_transaction(const TID &tid);
+  bool resume_transaction(const TID &tid, bool silent_resume = false);
 
   bool commit_transaction(const TID &tid);
 
-  bool rollback_transaction(const TID &tid);
+  bool rollback_transaction(const TID &tid, bool silent_abort = false);
 
   // Returns false if the transaction does not exist or the file cannot be
   // opened.  On success prints the number of imported tuples and returns true.

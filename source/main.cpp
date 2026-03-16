@@ -114,7 +114,7 @@ int main() {
         continue;
       }
       const std::string &tid = toks[1];
-      db.rollback_transaction(tid);
+      db.rollback_transaction(tid, false);
     } else if (cmd == "QUERY") {
       // ------------------------------------------------------------------
       // QUERY <tid> <body>
@@ -151,7 +151,7 @@ int main() {
         continue;
       }
       const std::string &tid = toks[1];
-      db.resume_transaction(tid);
+      db.resume_transaction(tid, false);
     } else if (cmd == "QUIT") {
       std::println("Goodbye!");
       return 0;

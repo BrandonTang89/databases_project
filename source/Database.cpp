@@ -4,7 +4,6 @@
 #include "common.hpp"
 #include <cstddef>
 #include <print>
-#include <set>
 #include <string>
 #include <unordered_map>
 
@@ -32,14 +31,14 @@ bool Database::commit_transaction(const TID &tid) {
   return true;
 }
 
-bool Database::rollback_transaction(const TID &tid) {
+bool Database::rollback_transaction(const TID &tid, bool silent_abort) {
   auto it = transactions.find(tid);
   if (it == transactions.end()) {
     std::println(out, "ERROR: transaction {} does not exist.", tid);
     return false; // No such transaction
   }
 
-  it->second.rollback();
+  it->second.rollback(silent_abort);
   return true;
 }
 
@@ -94,7 +93,7 @@ bool Database::query(const TID &tid, std::vector<QueryAtom> body) {
   return true;
 }
 
-bool Database::resume_transaction(const TID &tid) {
+bool Database::resume_transaction(const TID &tid, bool silent_resume) {
 
   auto it = transactions.find(tid);
   if (it == transactions.end()) {
@@ -103,7 +102,7 @@ bool Database::resume_transaction(const TID &tid) {
   }
 
   Transaction &tx = it->second;
-  StatusCode status = tx.resume();
+  StatusCode status = tx.resume(silent_resume);
   on_control(tid, status);
 
   return true;
@@ -111,13 +110,26 @@ bool Database::resume_transaction(const TID &tid) {
 
 void Database::on_control(const TID &tid, StatusCode status) {
   if (status == StatusCode::SUSPENDED) {
+    while (true) {
+      std::optional<TID> victim_opt = deadlock_detector.detect_cycle(tid);
+      if (!victim_opt) {
+        break; // No deadlock detected, can just wait
+      }
+
+      TID victim = *victim_opt;
+      std::println(
+          out, "A deadlock was detected, and transaction {} was rolled back.",
+          victim);
+
+      rollback_transaction(victim, true);
+      if (victim != tid) {
+        debug("Resuming transaction {} after aborting victim {}.", tid, victim);
+        resume_transaction(tid, true);
+        return; // let the nested on_control deal with it
+      }
+    }
     std::println(out, "Transaction {} was suspended.", tid);
-    detect_and_resolve_deadlock(tid);
+  } else {
+    transactions.at(tid).clear_required_locks();
   }
-}
-
-void Database::detect_and_resolve_deadlock(const TID &tid) {
-  std::set<std::pair<TID, Lock *>> visited_tx;    // (tid, parent)
-  std::set<std::pair<Lock *, TID>> visited_locks; // (lock, parent)
-
 }

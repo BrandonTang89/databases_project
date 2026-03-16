@@ -1,5 +1,6 @@
 #pragma once
 #include "DataTuple.hpp"
+#include "DeadlockDetector.hpp"
 #include "Relation.hpp"
 #include "Stage.hpp"
 #include "common.hpp"
@@ -22,13 +23,14 @@ static std::flat_map<TransactionState, std::string> transaction_state_names = {
 class Transaction {
   friend class Relation;
   friend class Stage;
+  friend class DeadlockDetector;
   std::ostream &out;
   TID tid;
-  size_t age{0};
+  size_t startTime{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
   std::unordered_set<Lock *> held_locks; // for cleanup on finish
-  std::flat_set<Lock*> required_locks; // for deadlock detection
+  std::flat_set<Lock *> required_locks;  // for deadlock detection
 
   // Command start time
   std::chrono::high_resolution_clock::time_point command_start_time;
@@ -43,9 +45,9 @@ class Transaction {
   size_t num_modified{0};
 
   // Suspended State for query operations
-  std::vector<QueryAtom> query_atoms;      // |query|
+  std::vector<QueryAtom> query_atoms;         // |query|
   std::flat_map<std::string, size_t> var_idx; // |num_vars|
-  std::vector<Stage> stages;     // |query|
+  std::vector<Stage> stages;                  // |query|
   std::vector<size_t> input_variables; // num vars in channels[i], |query| + 1
   size_t num_answers{0};
 
@@ -68,14 +70,30 @@ class Transaction {
 
 public:
   bool acquire(Lock &lock, LockMode mode);
-  Transaction(std::ostream &output_stream, const TID &transaction_id, size_t _age,
-              std::unordered_map<RelName, Relation> &rels);
+  Transaction(std::ostream &output_stream, const TID &transaction_id,
+              size_t _age, std::unordered_map<RelName, Relation> &rels);
+
+  // Requires the transaction to be in READY state.
   StatusCode start_edit(Relation *rel, const std::string &csv_file,
                         bool newAlive);
+
+  // Requires the transaction to be in READY state
   StatusCode start_query(std::vector<QueryAtom> query_atoms);
-  StatusCode resume();
+
+  // Requires the transaction to be in the suspend state
+  StatusCode resume(bool silent_resume = false);
+
+  // Requires the transaction to be in READY state
   StatusCode commit();
-  StatusCode rollback();
+
+  // Rollback can be done from any state without issue
+  StatusCode rollback(bool silent_abort = false);
+
+  /**
+   * We should clear required locks upon successful completion of an operation
+   * and when resuming (done manually in resume(bool))
+   */
+  void clear_required_locks() { required_locks.clear(); }
 
   const TID &get_tid() const { return tid; }
 };
