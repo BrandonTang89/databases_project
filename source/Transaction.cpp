@@ -41,9 +41,7 @@ void Transaction::print_time_taken() const {
 }
 
 void Transaction::store_original(DataTuple *tp) {
-  if (original_alive.find(tp) == original_alive.end()) {
-    original_alive[tp] = tp->alive;
-  }
+  original_alive.emplace(tp, tp->alive);
 }
 
 StatusCode Transaction::resume(bool silent_resume) {
@@ -75,6 +73,8 @@ StatusCode Transaction::start_edit(Relation *rel, const std::string &csv_file,
   }
   command_start_time = std::chrono::high_resolution_clock::now();
   incoming_tuples = parse_csv_file(csv_file);
+  held_locks.reserve(held_locks.size() + incoming_tuples.size());
+  original_alive.reserve(original_alive.size() + incoming_tuples.size());
   incoming_index = 0;
   num_modified = 0;
   trace("Parsed {} tuples from '{}'", incoming_tuples.size(), csv_file);

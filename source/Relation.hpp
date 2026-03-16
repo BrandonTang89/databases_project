@@ -41,11 +41,13 @@ private:
    * Checks if the transaction is permitted to modify the tuple with respect to
    * the group locks.
    */
-  bool check_group_locks(const TID &tid, uint32_t left, uint32_t right);
+  bool check_group_locks(const TID &tid, uint32_t left, uint32_t right,
+                         Group &left_group, Group &right_group);
 
   /**
    * Adds the group locks that the transaction would need to pass to edit the
    * tuple
    */
-  void dep_group_locks(Transaction &tx, uint32_t left, uint32_t right);
+  void dep_group_locks(Transaction &tx, uint32_t left, uint32_t right,
+                       Group &left_group, Group &right_group);
 };

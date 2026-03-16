@@ -6,7 +6,8 @@
 #include "Transaction.hpp"
 #include <unordered_map>
 
-bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right) {
+bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
+                                 Group &left_group, Group &right_group) {
   if (left == right) {
     if (!diagonalIndex.lock.permits(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);
@@ -14,14 +15,12 @@ bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right) 
     }
   }
 
-  Group &leftGroup = leftToRightIndex[left];
-  Group &rightGroup = rightToLeftIndex[right];
-  if (!leftGroup.lock.permits(tid)) {
+  if (!left_group.lock.permits(tid)) {
     debug("Transaction {} is waiting for left group lock for value {}", tid,
           left);
     return false;
   }
-  if (!rightGroup.lock.permits(tid)) {
+  if (!right_group.lock.permits(tid)) {
     debug("Transaction {} is waiting for right group lock for value {}", tid,
           right);
     return false;
@@ -29,21 +28,22 @@ bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right) 
   return true;
 }
 
-void Relation::dep_group_locks(Transaction &tx, uint32_t left, uint32_t right) {
+void Relation::dep_group_locks(Transaction &tx, uint32_t left, uint32_t right,
+                               Group &left_group, Group &right_group) {
   if (left == right) {
     tx.required_locks.insert(&diagonalIndex.lock);
   }
-  Group &leftGroup = leftToRightIndex[left];
-  Group &rightGroup = rightToLeftIndex[right];
-  tx.required_locks.insert(&leftGroup.lock);
-  tx.required_locks.insert(&rightGroup.lock);
+  tx.required_locks.insert(&left_group.lock);
+  tx.required_locks.insert(&right_group.lock);
 }
 
 bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool newAlive) {
   // Only called by adding query
   const TID &tid = tx.tid;
+  Group &left_group = leftToRightIndex[left];
+  Group &right_group = rightToLeftIndex[right];
   DataTuple *tp = ensure_tuple(left, right);
-  if (check_group_locks(tid, left, right) &&
+  if (check_group_locks(tid, left, right, left_group, right_group) &&
       tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
     // Treat all the lock parts as "atomic"
     // this ensures proper deadlock detection!
@@ -60,9 +60,8 @@ bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool n
     return true;
 
   } else {
-    tx.required_locks.insert(&tp->lock); 
     tx.required_locks.insert(&whole_rel_lock);
-    dep_group_locks(tx, left, right);
+    dep_group_locks(tx, left, right, left_group, right_group);
 
     debug("Transaction {} is waiting to acquire lock for tuple ({}, {})", tid,
           left, right);
