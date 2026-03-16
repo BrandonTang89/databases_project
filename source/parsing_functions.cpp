@@ -24,7 +24,7 @@ std::optional<QueryArg> parse_term(std::string_view sv) {
     return std::nullopt;
 
   // Try integer first.
-  int val{};
+  uint32_t val{};
   auto [end, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
   if (ec == std::errc{} && end == sv.data() + sv.size())
     return Constant{val};

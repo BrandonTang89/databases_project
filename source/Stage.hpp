@@ -16,8 +16,8 @@ public:
   Stage *previous{nullptr};
   size_t num_output_vars{0};
   size_t num_input_vars{0};
-  std::vector<int> *input{nullptr};
-  std::vector<int> output{};
+  std::vector<uint32_t> *input{nullptr};
+  std::vector<uint32_t> output{};
 
   bool left_is_const;
   bool right_is_const;
@@ -26,7 +26,7 @@ public:
 
   size_t var_idx = 0;
   size_t var2_idx = 0;
-  int const_val = 0;
+  uint32_t const_val = 0;
   Group *group;
 
   bool group_iter_valid = false;
@@ -78,7 +78,7 @@ public:
   PipelineStatus next_join_left();  // join on R(existing, new)
   PipelineStatus next_join_right(); // join on R(new, existing)
 
-  std::vector<int> *get_out_channel() {
+  std::vector<uint32_t> *get_out_channel() {
     if (type == StageType::GROUP_FILTER || type == StageType::RELATION_FILTER ||
         type == StageType::CONST_CONST) {
       return input;

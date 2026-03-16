@@ -2,8 +2,8 @@
 #include "XSLock.hpp"
 
 struct DataTuple {
-  int left{};
-  int right{};
+  uint32_t left{};
+  uint32_t right{};
   bool alive{false};
   XSLock lock{};
 };

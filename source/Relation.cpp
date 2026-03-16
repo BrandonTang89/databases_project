@@ -6,7 +6,7 @@
 #include "Transaction.hpp"
 #include <unordered_map>
 
-bool Relation::check_group_locks(const TID &tid, int left, int right) {
+bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right) {
   if (left == right) {
     if (!diagonalIndex.lock.permits(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);
@@ -29,7 +29,7 @@ bool Relation::check_group_locks(const TID &tid, int left, int right) {
   return true;
 }
 
-void Relation::dep_group_locks(Transaction &tx, int left, int right) {
+void Relation::dep_group_locks(Transaction &tx, uint32_t left, uint32_t right) {
   if (left == right) {
     tx.required_locks.insert(&diagonalIndex.lock);
   }
@@ -39,7 +39,7 @@ void Relation::dep_group_locks(Transaction &tx, int left, int right) {
   tx.required_locks.insert(&rightGroup.lock);
 }
 
-bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
+bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool newAlive) {
   // Only called by adding query
   const TID &tid = tx.tid;
   DataTuple *tp = ensure_tuple(left, right);
@@ -71,11 +71,11 @@ bool Relation::edit_tuple(Transaction &tx, int left, int right, bool newAlive) {
   assert(false);
 }
 
-DataTuple *Relation::get_tuple(int left, int right) {
+DataTuple *Relation::get_tuple(uint32_t left, uint32_t right) {
   return ensure_tuple(left, right);
 }
 
-DataTuple *Relation::ensure_tuple(int left, int right) {
+DataTuple *Relation::ensure_tuple(uint32_t left, uint32_t right) {
   Group &group = leftToRightIndex[left];
   DataTuple *tp = group.find(left, right);
   if (!tp) {

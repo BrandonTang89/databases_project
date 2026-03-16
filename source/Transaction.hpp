@@ -40,7 +40,7 @@ class Transaction {
 
   // Suspended State for add/delete operations
   Relation *target_relation{nullptr};
-  std::vector<std::pair<int, int>> incoming_tuples;
+  std::vector<std::pair<uint32_t, uint32_t>> incoming_tuples;
   size_t incoming_index{0}; // next tuple to process
   size_t num_modified{0};
 

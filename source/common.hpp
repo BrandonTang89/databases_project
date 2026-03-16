@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <iostream>
 #include <print>
 #include <string>
@@ -30,7 +31,7 @@ enum class TransactionState {
 
 // Query Representation
 struct Constant {
-  int value;
+  uint32_t value;
 };
 struct Variable {
   std::string name;
@@ -63,7 +64,7 @@ enum class PipelineStatus {
 
 struct Channel {
   PipelineStatus status{PipelineStatus::OK};
-  std::vector<int> data;
+  std::vector<uint32_t> data;
 };
 
 template <typename... Args>

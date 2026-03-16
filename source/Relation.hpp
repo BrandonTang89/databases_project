@@ -10,8 +10,8 @@ class Relation {
 
 public:
   StableVector<DataTuple, 2048> tuples;
-  std::unordered_map<int, Group> leftToRightIndex;
-  std::unordered_map<int, Group> rightToLeftIndex;
+  std::unordered_map<uint32_t, Group> leftToRightIndex;
+  std::unordered_map<uint32_t, Group> rightToLeftIndex;
   Group diagonalIndex; // index for tuples where left == right
   SLock whole_rel_lock{};
 
@@ -22,11 +22,11 @@ public:
    * Doesn't check whole relation lock for efficiency, caller should check
    * before calling this method
    */
-  bool edit_tuple(Transaction &tx, int left, int right, bool newAlive);
+  bool edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool newAlive);
 
   /** Ensures the tuple is created and thus always not null
    */
-  DataTuple *get_tuple(int left, int right);
+  DataTuple *get_tuple(uint32_t left, uint32_t right);
 
 private:
   /**
@@ -35,17 +35,17 @@ private:
    * Once a tuple is created, it is never removed.
    * Always safe to do regardless of any locks
    */
-  DataTuple *ensure_tuple(int left, int right);
+  DataTuple *ensure_tuple(uint32_t left, uint32_t right);
 
   /**
    * Checks if the transaction is permitted to modify the tuple with respect to
    * the group locks.
    */
-  bool check_group_locks(const TID &tid, int left, int right);
+  bool check_group_locks(const TID &tid, uint32_t left, uint32_t right);
 
   /**
    * Adds the group locks that the transaction would need to pass to edit the
    * tuple
    */
-  void dep_group_locks(Transaction &tx, int left, int right);
+  void dep_group_locks(Transaction &tx, uint32_t left, uint32_t right);
 };

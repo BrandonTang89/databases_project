@@ -133,8 +133,8 @@ PipelineStatus Stage::next() {
 }
 
 PipelineStatus Stage::next_const_const() {
-  const int left_const = std::get<Constant>(atom->left).value;
-  const int right_const = std::get<Constant>(atom->right).value;
+  const uint32_t left_const = std::get<Constant>(atom->left).value;
+  const uint32_t right_const = std::get<Constant>(atom->right).value;
 
   DataTuple *tp = rel->get_tuple(left_const, right_const);
   assert(tp && "tuple should always exist");
@@ -216,7 +216,7 @@ PipelineStatus Stage::next_group_product() {
       group_iter = group->tuples.begin();
     }
 
-    DataTuple *tp = *group_iter;
+    DataTuple *tp = group_iter->second;
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;
@@ -240,8 +240,8 @@ PipelineStatus Stage::next_relation_filter() {
     }
 
     // Check the new input
-    int left_val = input->at(var_idx);
-    int right_val = input->at(var2_idx);
+    uint32_t left_val = input->at(var_idx);
+    uint32_t right_val = input->at(var2_idx);
     DataTuple *tp = rel->get_tuple(left_val, right_val);
     assert(tp && "tuple should always exist");
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
@@ -308,7 +308,7 @@ PipelineStatus Stage::next_join_left() {
   }
 
   while (group_iter != group->tuples.end()) {
-    DataTuple *tp = *group_iter;
+    DataTuple *tp = group_iter->second;
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;
@@ -340,7 +340,7 @@ PipelineStatus Stage::next_join_right() {
   }
 
   while (group_iter != group->tuples.end()) {
-    DataTuple *tp = *group_iter;
+    DataTuple *tp = group_iter->second;
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;

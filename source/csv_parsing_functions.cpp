@@ -23,7 +23,7 @@ ParseResult parse_csv_line(const std::string &line) {
   if (rhs.find(',') != std::string_view::npos)
     return {false, 0, 0};
 
-  int left{}, right{};
+  uint32_t left{}, right{};
   auto [lend, lerr] =
       std::from_chars(lhs.data(), lhs.data() + lhs.size(), left);
   if (lerr != std::errc{} || lend != lhs.data() + lhs.size())
@@ -37,8 +37,8 @@ ParseResult parse_csv_line(const std::string &line) {
   return {true, left, right};
 }
 
-std::vector<std::pair<int, int>> parse_csv_file(const std::string &filename) {
-  std::vector<std::pair<int, int>> result;
+std::vector<std::pair<uint32_t, uint32_t>> parse_csv_file(const std::string &filename) {
+  std::vector<std::pair<uint32_t, uint32_t>> result;
   std::ifstream file(filename);
   if (!file.is_open()) {
     std::println(std::cerr, "ERROR: cannot open file '{}'", filename);
@@ -46,7 +46,7 @@ std::vector<std::pair<int, int>> parse_csv_file(const std::string &filename) {
   }
 
   std::string line;
-  int line_no = 0;
+  uint32_t line_no = 0;
   while (std::getline(file, line)) {
     ++line_no;
     auto [ok, left, right] = parse_csv_line(line);
