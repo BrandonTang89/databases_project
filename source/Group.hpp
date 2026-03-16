@@ -19,9 +19,18 @@ struct Group {
   }
 
   // Find the alive tuples with given left and right values
-  DataTuple *find(uint32_t left, uint32_t right) {
+  DataTuple *findAlive(uint32_t left, uint32_t right) {
     auto it = tuples.find(make_key(left, right));
     if (it != tuples.end() && it->second->alive) {
+      return it->second;
+    } else {
+      return nullptr;
+    }
+  }
+
+  DataTuple *find(uint32_t left, uint32_t right) {
+    auto it = tuples.find(make_key(left, right));
+    if (it != tuples.end()) {
       return it->second;
     } else {
       return nullptr;
@@ -31,7 +40,7 @@ struct Group {
   bool insert(DataTuple *tp) {
     // Precondition: tp is not already in tuples and matches the DTI pattern.
     assert(!find(tp->left, tp->right));
-    tuples[make_key(tp->left, tp->right)] = tp; 
+    tuples[make_key(tp->left, tp->right)] = tp;
     return true;
   }
 };
