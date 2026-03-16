@@ -1,0 +1,21 @@
+> BEGIN T1
+Transaction T1 was created.
+> ADD T1 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> ADD T1 S S1.csv
+Relation S was created.
+Tuples added:      4
+Command time:      <NUMBER> ms
+> QUERY T1 S(Y,Z), R(X,Y)
+2,11,1
+2,12,1
+4,13,3
+4,14,3
+Number of answers: 4
+Command time:      <NUMBER> ms
+> COMMIT T1
+Transaction T1 was committed.
+> QUIT
+Goodbye!

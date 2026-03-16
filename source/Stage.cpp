@@ -217,11 +217,12 @@ PipelineStatus Stage::next_group_product() {
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;
+
+    group_iter++;
     // Skip dead tuples
     if (!tp->alive) {
       continue;
     }
-    group_iter++;
     output[var_idx] = left_is_const ? tp->right : tp->left;
     // diagonal group either left or right is okay
     return PipelineStatus::OK;
@@ -308,13 +309,13 @@ PipelineStatus Stage::next_join_left() {
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;
+
+    group_iter++;
     // Skip dead tuples
     if (!tp->alive) {
-      group_iter++;
       continue;
     }
     output[var2_idx] = tp->right;
-    group_iter++;
     return PipelineStatus::OK;
   }
   group_iter_valid = false;
@@ -340,13 +341,13 @@ PipelineStatus Stage::next_join_right() {
     bool locked = tx.acquire(tp->lock, LockMode::SHARED);
     if (!locked)
       return PipelineStatus::SUSPEND;
+
+    group_iter++;
     // Skip dead tuples
     if (!tp->alive) {
-      group_iter++;
       continue;
     }
     output[var_idx] = tp->left;
-    group_iter++;
     return PipelineStatus::OK;
   }
   group_iter_valid = false;
