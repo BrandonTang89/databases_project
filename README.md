@@ -56,11 +56,11 @@ The benchmarking workflow (as described in the assignment) involves executing a 
 
 To run the full benchmark:
 ```bash
-python3 benchmarks/execute_part.py benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
+python3 benchmarks/bench.py benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
 ```
 Or for a quick test using the smaller minibench which just does some loads and queries:
 ```bash
-python3 benchmarks/execute_part.py benchmarks/benchmark_parts/bench_in/minibench_1.in
+python3 benchmarks/bench.py benchmarks/benchmark_parts/bench_in/minibench_1.in
 ```
 
 This will:
@@ -76,9 +76,9 @@ python3 benchmarks/produce_report_table.py
 This script parses the benchmark output and calculates the time taken for each operation.
 
 ### Profiling
-The `execute_part.py` script also supports profiling using Linux `perf`:
+The `bench.py` script also supports profiling using Linux `perf`:
 ```bash
-python3 benchmarks/execute_part.py --profile benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
+python3 benchmarks/bench.py --profile benchmarks/benchmark_parts/bench_in/bench_{1,2,3,4,5,6}.in
 ```
 When `--profile` is used, it captures performance data and, if [FlameGraph](https://github.com/brendangregg/FlameGraph) tools are available in your PATH or provided via `--flamegraph-dir`, it automatically generates a flamegraph SVG in `benchmarks/benchmark_parts/bench_out/profiles/`.
 

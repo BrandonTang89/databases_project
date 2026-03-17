@@ -76,7 +76,7 @@ bool Database::delete_data(const TID &tid, const RelName &rel_name,
     return false;
   }
 
-  Relation &rel = relations[rel_name];
+  Relation &rel = relations.at(rel_name);
   StatusCode status = it->second.start_edit(&rel, csv_file, false);
   on_control(tid, status);
   return true;

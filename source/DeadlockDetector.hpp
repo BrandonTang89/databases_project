@@ -10,7 +10,7 @@ class DeadlockDetector {
   std::vector<TID> cycle; // populated if a cycle is detected
 
   // Returns whether a cycle was detected
-  bool dfs_tx(const TID tid);
+  bool dfs_tx(const TID& tid);
 
 public:
   DeadlockDetector(std::unordered_map<TID, Transaction> &txs)

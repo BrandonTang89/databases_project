@@ -11,7 +11,7 @@ Stage::Stage(size_t stage_index, Transaction &trx)
     type = StageType::INITIAL;
     return;
   }
-  
+
   channel = &tx.query_channel;
   atom = &tx.query_atoms[stage_idx - 1];
   previous = &tx.stages[stage_idx - 1];
@@ -54,6 +54,7 @@ Stage::Stage(size_t stage_index, Transaction &trx)
         // both variables are new, we need to do a relation product
         type = StageType::RELATION_PRODUCT;
         tx.acquire(rel->whole_rel_lock, LockMode::SHARED);
+        // acquire never fails beacuse its on an SLock
         num_output_vars = num_input_vars + 2;
 
         if (num_input_vars == 0) {
@@ -75,6 +76,8 @@ Stage::Stage(size_t stage_index, Transaction &trx)
       } else {
         type = StageType::RELATION_FILTER;
         tx.acquire(rel->whole_rel_lock, LockMode::SHARED);
+        // acquire never fails beacuse its on an SLock
+
         num_output_vars = num_input_vars;
       }
     }
@@ -86,6 +89,7 @@ Stage::Stage(size_t stage_index, Transaction &trx)
 void Stage::group_setup() {
   assert(group && "group should have been set already");
   tx.acquire(group->lock, LockMode::SHARED);
+  // acquire never fails beacuse its on an SLock
 
   const bool introduces_new_var = var_idx >= num_input_vars;
   if (introduces_new_var) {
@@ -287,63 +291,69 @@ PipelineStatus Stage::next_relation_product() {
 }
 
 PipelineStatus Stage::next_join_left() {
-  if (!group_iter_valid) {
-    // We need to pull a new one
-    PipelineStatus st = previous->next();
-    if (st != PipelineStatus::OK) {
-      return st;
-    }
-    group = &rel->leftToRightIndex[(*channel)[var_idx]];
-    group_iter = group->tuples.begin();
-    tx.acquire(group->lock, LockMode::SHARED);
-    group_iter_valid = true;
-  }
+  while (true) {
+    if (!group_iter_valid) {
+      // We need to pull a new one
+      PipelineStatus st = previous->next();
+      if (st != PipelineStatus::OK) {
+        return st;
+      }
+      group = &rel->leftToRightIndex[(*channel)[var_idx]];
+      group_iter = group->tuples.begin();
+      tx.acquire(group->lock, LockMode::SHARED);
+      // acquire never fails beacuse its on an SLock
 
-  while (group_iter != group->tuples.end()) {
-    DataTuple *tp = group_iter->second;
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
-      return PipelineStatus::SUSPEND;
-
-    group_iter++;
-    // Skip dead tuples
-    if (!tp->alive) {
-      continue;
+      group_iter_valid = true;
     }
-    (*channel)[var2_idx] = tp->right;
-    return PipelineStatus::OK;
+
+    while (group_iter != group->tuples.end()) {
+      DataTuple *tp = group_iter->second;
+      bool permitted = tp->lock.permits_read(tx.tid);
+      if (!permitted)
+        return PipelineStatus::SUSPEND;
+
+      group_iter++;
+      // Skip dead tuples
+      if (!tp->alive) {
+        continue;
+      }
+      (*channel)[var2_idx] = tp->right;
+      return PipelineStatus::OK;
+    }
+    group_iter_valid = false;
   }
-  group_iter_valid = false;
-  return next_join_left(); // tail recursion to get the next one
 }
 
 PipelineStatus Stage::next_join_right() {
-  if (!group_iter_valid) {
-    // We need to pull a new one
-    PipelineStatus st = previous->next();
-    if (st != PipelineStatus::OK) {
-      return st;
-    }
-    group = &rel->rightToLeftIndex[(*channel)[var2_idx]];
-    group_iter = group->tuples.begin();
-    tx.acquire(group->lock, LockMode::SHARED);
-    group_iter_valid = true;
-  }
+  while (true) {
+    if (!group_iter_valid) {
+      // We need to pull a new one
+      PipelineStatus st = previous->next();
+      if (st != PipelineStatus::OK) {
+        return st;
+      }
+      group = &rel->rightToLeftIndex[(*channel)[var2_idx]];
+      group_iter = group->tuples.begin();
+      tx.acquire(group->lock, LockMode::SHARED);
+      // acquire never fails beacuse its on an SLock
 
-  while (group_iter != group->tuples.end()) {
-    DataTuple *tp = group_iter->second;
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
-      return PipelineStatus::SUSPEND;
-
-    group_iter++;
-    // Skip dead tuples
-    if (!tp->alive) {
-      continue;
+      group_iter_valid = true;
     }
-    (*channel)[var_idx] = tp->left;
-    return PipelineStatus::OK;
+
+    while (group_iter != group->tuples.end()) {
+      DataTuple *tp = group_iter->second;
+      bool permitted = tp->lock.permits_read(tx.tid);
+      if (!permitted)
+        return PipelineStatus::SUSPEND;
+
+      group_iter++;
+      // Skip dead tuples
+      if (!tp->alive) {
+        continue;
+      }
+      (*channel)[var_idx] = tp->left;
+      return PipelineStatus::OK;
+    }
+    group_iter_valid = false;
   }
-  group_iter_valid = false;
-  return next_join_right(); // tail recursion to get the next one
 }

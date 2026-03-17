@@ -2,16 +2,16 @@
 #include "Transaction.hpp"
 #include <optional>
 
-bool DeadlockDetector::dfs_tx(const TID tid) {
-
-  if (visited_tx[tid] == VisitState::VISITING) {
+bool DeadlockDetector::dfs_tx(const TID& tid) {
+  auto it = visited_tx.find(tid);
+  if (it != visited_tx.end() && it->second == VisitState::VISITING) {
     // Cycle detected, return the cycle
     return true;
   }
-  if (visited_tx[tid] == VisitState::VISITED) {
+  if (it != visited_tx.end() && it->second == VisitState::VISITED) {
     return false;
   }
-  visited_tx[tid] = VisitState::VISITING;
+  visited_tx.insert_or_assign(tid, VisitState::VISITING);
   Transaction &tx = transactions.at(tid);
   for (Lock *lock : tx.required_locks) {
     for (const TID &holding_tid : lock->current_holders()) {
@@ -25,7 +25,7 @@ bool DeadlockDetector::dfs_tx(const TID tid) {
       }
     }
   }
-  visited_tx[tid] = VisitState::VISITED;
+  visited_tx.insert_or_assign(tid, VisitState::VISITED);
   return false;
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-execute_part.py  [options] <bench_N.in> [<bench_M.in> ...]
+bench.py  [options] <bench_N.in> [<bench_M.in> ...]
 
 Builds the release binary, concatenates the given input files in order, runs
 the binary on the combined input, and writes the output file.
