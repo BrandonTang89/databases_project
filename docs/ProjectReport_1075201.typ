@@ -36,23 +36,23 @@
 = 1
 == a
 === i
-We manage tuple-level locks using shared/exclusive locks (XSLocks in @LockHierarchyImg). These are typical two-phase locks: they operate in shared mode for queries and exclusive mode for edits (add/delete).
+We manage tuple-level locks using shared/exclusive locks (XSLocks in @LockHierarchyImg). These are standard two-phase locks: they operate in shared mode for queries and exclusive mode for edits (add/delete).
 
 #figure(caption: "Lock Hierarchy")[
   #image("img/lock_hierarchy.svg", width: 80%)
 ] <LockHierarchyImg>
 
-XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg).  The lock maintains an explicit set of `lock_holders` (`std::flat_set`) to support the deadlock detector's traversal of the waits-for graph. We use a flat set because the number of concurrent holders for a single tuple is typically very small, optimizing for cache locality.
+XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg). The lock maintains an explicit set of `lock_holders` (`std::flat_set`) to support the deadlock detector's traversal of the waits-for graph. We use a flat set because the number of concurrent holders for a single tuple is typically very small, which improves cache locality.
 #figure(caption: "DataTuple Class")[
   #image("img/data_tuple.svg", width: 23%)
 ] <DataTupleImg>
 
-Within each Lock, we maintain an explicit set of transactions holding the lock. This will later be used by the deadlock detector to find out which transactions are being held by which locks, which is necessary in traversing the implicit waits-for graph. We choose to explicitly use inheritance and a VTable to implement the lock hierarchy, as opposed to using a C++20 concept. This allows each transaction to hold onto sets of Lock pointers, allowing them to be treated uniformly.
+Within each Lock, we maintain an explicit set of transactions holding the lock. This is later used by the deadlock detector to determine which transactions are waiting on which locks while traversing the implicit waits-for graph. We explicitly use inheritance and a VTable to implement the lock hierarchy, rather than a C++20 concept. This allows each transaction to hold sets of Lock pointers and treat them uniformly.
 
 
 
 === ii
-To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$."
+To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$".
 
 #figure(caption: "Relation and Group Classes")[
   #image("img/group_relation.svg", width: 100%)
@@ -67,11 +67,11 @@ Relation locks belong directly to Relation objects (see @RelationGroupImg), whil
 
 The different operations interact with the locks as follows:
 
-Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ would require reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that would match this predicate, it will be blocked until the query transaction commits or rolls back. When it reads the present tuples, we also need to ensure we do not do any dirty reads from transactions that have not yet committed (or aborted). Thus, queries should use the `XSLock::permits_read` method that checks if the lock could be acquired in shared mode by this transaction.
+Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ requires reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that matches this predicate, it is blocked until the query transaction commits or rolls back. While reading existing tuples, we also need to prevent dirty reads from transactions that have not yet committed (or have aborted). Thus, queries use the `XSLock::permits_read` method, which checks whether the lock could be acquired in shared mode by this transaction.
 
-There is an edge case of queries of the from $R(c_1, c_2)$, i.e. constant queries. For these queries, we will not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than just using `XSLock::permits_read`.
+There is an edge case for queries of the form $R(c_1, c_2)$, i.e. constant queries. For these queries, we do not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than only using `XSLock::permits_read`.
 
-Edit operations modify tuples from an explicit list. As they do not use any implicit ranges, they do not need to acquire any predicate locks. However, they still need to avoid causing phantoms, thus for every tuple they want to edit, they need to ensure that no other transaction has acquired a shared lock on the relevant group lock that would cover the predicate of this tuple. This is achieved by using the `SLock::permits_edit` method that checks if the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction should acquire an exclusive lock on the tuple itself, similar to standard two-phase locking.
+Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
 
 Apart from the lock objects and their owners (Group, Relation and DataTuple), we also describe the Transaction objects (@TransactionImg) which hold onto pointers to locks.
 
@@ -81,20 +81,20 @@ Apart from the lock objects and their owners (Group, Relation and DataTuple), we
 
 We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (std::unordered_set) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a std::flat_set to store the locks that a transaction is waiting on.
 
-These transactions are stored in a single Database object (@DatabaseImg) that acts as the global transaction and lock manager. On transactions finishing their execution, they will either be suspended or not. The Database class will be responsible for detecting deadlocks in the former case and releasing locks in the latter case. This is implemented in `Database::OnControl`.
+These transactions are stored in a single Database object (@DatabaseImg) that acts as the global transaction and lock manager. When transactions finish an operation, they are either suspended or ready to continue. The Database class is responsible for detecting deadlocks in the former case and progressing normal control flow in the latter case. This is implemented in `Database::OnControl`.
 
 #figure(caption: "Database Class")[
   #image("img/database.svg", width: 75%)
 ] <DatabaseImg>
 
-We choose to move some the deadlock detection logic into a separate `DeadlockDetector` class (@DeadlockDetectorImg) composed into the Database class. This allows us to keep the core transaction and locking management logic separate from the deadlock detection logic.
+We move some of the deadlock detection logic into a separate `DeadlockDetector` class (@DeadlockDetectorImg), composed into the Database class. This keeps the core transaction/locking management logic separate from deadlock detection.
 
 #figure(caption: "Deadlock Detector Class")[
   #image("img/deadlock.svg", width: 75%)
 ] <DeadlockDetectorImg>
 
 === iii
-The locks exposes the following primary functions:
+The locks expose the following primary functions:
 
 `Lock::acquire(tx_id: TID, mode: LockMode) -> boolean` \
 Attempts to register the transaction as a holder. For XSLocks, this includes checking for shared/exclusive compatibility (see @XSAcquire). If a conflict occurs (e.g., requesting EXCLUSIVE when another transaction holds the lock), it returns `false`. For SLocks, we can always add the transaction as a holder and return `true`.
@@ -103,7 +103,7 @@ Attempts to register the transaction as a holder. For XSLocks, this includes che
 A wrapper around `Lock::acquire` used by the execution engine. If `Lock::acquire` fails, the transaction is added to the lock's internal wait-queue and the transaction's `required_locks` set. The function returns `false` to signal that the transaction must be suspended.
 
 `Lock::release(tx_id: TID)` \
-Removes the transaction from the holder set. This is called during commit or rollback via `Transaction::release_all_locks()` that not only releases the locks but also clears the transaction's `held_locks` set.
+Removes the transaction from the holder set. This is called during commit or rollback via `Transaction::release_all_locks()`, which both releases locks and clears the transaction's `held_locks` set.
 
 `Lock::current_holders() -> &Set<TID>` \
 Returns the transactions currently holding the lock, used by the deadlock detector to construct the waits-for graph.
@@ -145,7 +145,7 @@ The deadlock detector object provides the following function:
 
 
 `DeadlockDetector::detect_cycle(tid: TID) -> Optional<TID>` \
-Performs a depth-first search starting from the given transaction ID, traversing through the waits-for graph by looking at the locks that the transaction is waiting on, and then looking at the transactions that are holding those locks, and so on. If we run into any back edge, then we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to be rolled back. This is described in more detail in @DetectCycle.
+Performs a depth-first search starting from the given transaction ID, traversing the waits-for graph by following locks that the transaction is waiting on and the transactions currently holding those locks. If we encounter a back edge, we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to roll back. This is described in more detail in @DetectCycle.
 
 
 
@@ -226,35 +226,35 @@ Performs a depth-first search starting from the given transaction ID, traversing
 
 == b
 === i
-The tuples themselves are stored in the Relation class's tuples vector. We use a StableVector that works as a linked list of fixed-size blocks. This allows us to have stable pointers to tuples that can be stored in the various indices. Using a normal std::vector would require us to update all the pointers in the indices every time we resize the vector, while using a linked list would result in worse cache performance and allocation overhead. Note that we only ever add tuples to the end of the StableVector, and never remove tuples from the middle, deletion works by setting the alive flag to false in the DataTuple.
+The tuples themselves are stored in the Relation class's tuple container. We use a StableVector implemented as a linked list of fixed-size blocks. This allows us to keep stable pointers to tuples that can be stored in the various indices. Using a normal `std::vector` would require updating all pointers in the indices every time the vector resized, while using a plain linked list would lead to worse cache performance and allocation overhead. Note that we only ever append tuples to the StableVector and never remove tuples from the middle; deletion is represented by setting the `alive` flag to false in the DataTuple.
 
-Based on the query patterns we will see later in 1(c), we maintain 3 kinds of hash indices on the relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$ where we want to efficiently iterate over all tuples matching a constant on the left or right attribute respectively. The third index is for queries of the form $R(X, X)$ where we want to efficiently iterate over all tuples where the left and right attributes are the same. Since each of these indices cover the same range as the predicate locks described above, we also put them in the group class.
+Based on the query patterns discussed in 1(c), we maintain three kinds of hash indices on each relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$, where we want to efficiently iterate over all tuples matching a constant on the left or right attribute, respectively. The third index is for queries of the form $R(X, X)$, where we want to efficiently iterate over all tuples whose left and right attributes are equal. Since each of these indices covers the same range as the predicate locks described above, we also place them in the Group class.
 
-Note that we do not actually have a whole relation index. We opted not to do this because it would add more overhead to adding tuples while not providing a significant speedup since we can use our left/right indices to efficiently check if a given tuple already exists in the relation. To iterate over all tuples in the relation, we can directly iterate over the StableVector of tuples, which would be more efficient than using another index.
+Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speedup: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the StableVector, which is more efficient than maintaining an additional index for this purpose.
 
 === ii
 We first discuss the methods exposed by the Relation class:
 
 `Relation::get_tuple(left: uint32_t, right: uint32_t) -> DataTuple*` \
-retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary and so will never return null. Note that it does not gaurantee that the tuple is alive, so the caller should check the alive flag if they only want to consider alive tuples. This works by using the `l_to_r_index` to find the group of tuples with the given left attribute, and then using the `Group::find` method to find the tuple with the given right attribute within that group. 
+retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary, so it never returns null. Note that it does not guarantee that the tuple is alive, so the caller should check the alive flag if they only want alive tuples. This works by using `l_to_r_index` to find the group of tuples with the given left attribute, and then using `Group::find` to find the tuple with the given right attribute within that group. 
 
 `Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
-is used to add or delete a tuple from the relation. It first finds the DataTuple via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any of the lock checks or acquisitions fail, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true.
+is used to add or delete a tuple from the relation. It first finds the DataTuple via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any lock check or acquisition fails, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true.
 
 Then we discuss the methods exposed by the Group class:
 
 `Group::insert(tp: *DataTuple): unit`
-inserts the given tuple pointer into the group index. It is used when adding a new tuple to the relation and we need to update the indices.
+inserts the given tuple pointer into the group index. It is used when adding a new tuple to the relation and updating the indices.
 
 `Group::find(left: uint32_t, right: uint32_t) -> DataTuple*`
-finds the tuple with the given left and right attributes in the group index. It returns null if no such tuple exists. It is used to efficiently find tuples matching a given predicate when evaluating queries.
+finds the tuple with the given left and right attributes in the group index. It returns null if no such tuple exists. It is used to efficiently locate tuples matching a given predicate when evaluating queries.
 
 == c
 
 == d & e
-We use a single algorithm for both adding and deleting, with just a difference in the new_alive parameter. An important design consideration was to ensure that when a transaction fails to be permitted by or acquire a lock, all relevant locks are recorded in the transaction's required_locks. This helps to ensure that deadlocks are detected as early as possible (without needing to resume transactions which cannot make meaningful progress).
+We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, all relevant locks are recorded in the transaction's `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).
 
-We also ensure to store the original value of tuples to allow rollbacks.
+We also store the original tuple values to allow rollbacks.
 
 #algorithm-figure(
   "Single Tuple Edit Algorithm",
@@ -299,7 +299,7 @@ We also ensure to store the original value of tuples to allow rollbacks.
 )<EditAlgorithm>
 
 == f
-When we commit, we just need to ensure that we are in a "ready" state to start a new operation and release all locks.
+When we commit, we ensure that the transaction is in the "ready" state and then release all locks.
 
 #algorithm-figure(
   "Commit Algorithm",
@@ -326,7 +326,7 @@ When we commit, we just need to ensure that we are in a "ready" state to start a
 )<CommitAlgorithm>
 
 == g
-To rollback, we just need to restore the original values of the tuples and release the locks held.
+To roll back, we restore the original tuple values and release all held locks.
 
 #algorithm-figure(
   "Rollback Algorithm",
@@ -414,10 +414,10 @@ To rollback, we just need to restore the original values of the tuples and relea
 ]
 
 == b
-The results show that my database implementation is optimised more for query-heavy workloads rather than write-heavy workloads. This makes sense since editing requires acquiring a large number of locks, filling in sets such as the `held_lock` set each transaction, as well as adding tuples to the various group indices. On the other hand, queries typically need to acquire less locks since we can acquire predicate locks that cover multiple tuples, and all these locks are SLocks which can always be acquired. 
+The results show that my database implementation is more optimised for query-heavy workloads than for write-heavy workloads. This makes sense since editing requires acquiring a larger number of locks, populating sets such as each transaction's `held_locks`, and adding tuples to the various group indices. By contrast, queries typically need fewer lock acquisitions because predicate locks can cover multiple tuples, and these locks are SLocks, which are always acquirable in shared mode.
 
-It is possible to trade off between these by increasing or decreasing the number of indices. For example, we could have made an extra index over the whole relation, or we could have chosen to only create group locks but not group indices. However, I believe my selection to be fairly sensible, avoiding any obviously bad types of queries.
+It is possible to trade off between these behaviours by increasing or decreasing the number of indices. For example, we could have added an extra index over the whole relation, or we could have created group locks without group indices. However, I believe my choice is fairly sensible and avoids any obviously bad query pattern.
 
-Having more open transactions doesn't necessarily slow down things much if the transactions operate on different parts of the database. The different transactions can acquire locks on different parts of the database and operate mostly independently.
+In terms of scalability with respect to the number of open transactions, performance is good when contention is low. If transactions mostly touch different groups/tuples, they can acquire disjoint locks and run largely independently, so increasing the number of open transactions does not hurt throughput much.
 
-However, if we start having conflicts and suspensions, then we incur the overhead of running the DFS-based deadlock detection algorithm each time. As much as we try to avoid locking whole relations, certain types of queries (such as $R(x, y)$) will still require whole relation locks, thus when we have many transactions which have run many queries, it will be quite difficult to any transaction to edit any tuples. That being said, this is a problem intrinsic to having serializable isolation rather than my implementation.
+The main scalability bottleneck appears once contention rises. More open transactions means larger lock-holder sets and more required-lock edges, and each suspension triggers a DFS deadlock check over that waits-for graph (cost proportional to $V + E$). In addition, coarse predicates such as $R(x, y)$ take relation-level shared locks, which can block many edits at once. So the system scales well in low-conflict workloads, but degrades under high-conflict workloads because more time is spent suspended or in deadlock handling rather than doing useful work; this is the expected trade-off for serializable isolation.
