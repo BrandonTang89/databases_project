@@ -35,65 +35,78 @@
 
 = 1
 == a
-=== i & ii
+=== i
+We manage tuple-level locks using shared/exclusive locks (XSLocks in @LockHierarchyImg). These are typical two-phase locks: they operate in shared mode for queries and exclusive mode for edits (add/delete).
+
 #figure(caption: "Lock Hierarchy")[
   #image("img/lock_hierarchy.svg", width: 80%)
-]
+] <LockHierarchyImg>
 
-We implement two different types of locks: shared locks (SLocks) and shared/exclusive locks (XSLocks). SLocks allow multiple transactions to hold the lock simultaneously, they are used for predicate locks and are acquired during query evaluation. XSLocks, on the other hand, are the typical locks seen in normal two-phase locking: they can operate in shared mode or exclusive mode, and are used for tuple level locking during both edits (add/delete) and queries.
-
-Within each Lock (XSLock and SLock), we maintain an explicit set of transactions holding the lock. This will later be used by the deadlock detector to find out which transactions are being held by which locks, which is necessary in traversing the implicit waits-for graph. We choose to explicitly use inheritance and a VTable to implement the lock hierarchy, as opposed to using a C++20 concept. This allows each transaction to hold onto sets of Lock pointers, allowing them to be treated uniformly.
-
-The set of lock_holders is implemented as a std::flat_set since we expect the number of transactions holding a lock to be small, and we want to optimize for cache locality.
-
-XSLocks are directly incorporated into the DataTuple class (@DataTupleImg), which represents a single tuple within a relation.
-
+XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg).  The lock maintains an explicit set of `lock_holders` (`std::flat_set`) to support the deadlock detector's traversal of the waits-for graph. We use a flat set because the number of concurrent holders for a single tuple is typically very small, optimizing for cache locality.
 #figure(caption: "DataTuple Class")[
   #image("img/data_tuple.svg", width: 23%)
 ] <DataTupleImg>
 
-The Slocks are used in two ways: for a whole relation predicate lock, and for a group predicate lock (@RelationGroupImg)
+Within each Lock, we maintain an explicit set of transactions holding the lock. This will later be used by the deadlock detector to find out which transactions are being held by which locks, which is necessary in traversing the implicit waits-for graph. We choose to explicitly use inheritance and a VTable to implement the lock hierarchy, as opposed to using a C++20 concept. This allows each transaction to hold onto sets of Lock pointers, allowing them to be treated uniformly.
+
+
+
+=== ii
+To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$." 
 
 #figure(caption: "Relation and Group Classes")[
   #image("img/group_relation.svg", width: 100%)
 ] <RelationGroupImg>
 
-Groups are used as both indices as well as allocated objects that contain the relevant SLock, with the semantics that the SLock should cover all tuples in the group. We have three main types of groups: left-constant groups, right-constant groups, and diagonal groups (where left == right). With this, we are able to effectively cover predicates of the form R(c, x), R(x, c), and R(x, x) respectively, where c is some constant value and x is a variable. We will later see in 1(c) how these are the natural groupings for the types of queries we have to evaluate.
+We provide three levels of granularity for predicate locks:
+1. Relation Lock: Covers all tuples in a relation $R(x, y)$.
+2. Group Locks: Cover subsets of a relation based on indices. These handle conditions of the form $R(c, x)$, $R(x, c)$, and $R(x, x)$ (diagonal).
+3. Tuple Locks: These act as the finest grain of locking, locking individual tuples.
 
-We also have a whole relation lock that is used to cover predicates of the form R(x, y), i.e. that covers the entire relation. It is possible to have made this into a group too, but we choose to keep it separate since we already have enough indices to effectively cover the queries.
+Relation locks belong directly to Relation objects (see @RelationGroupImg), while group locks are stored in groups belonging to relations (see @RelationGroupImg). The group locks are organized into three separate groups: one for the left attribute, one for the right attribute, and one for the diagonal (where left == right). This allows us to efficiently determine which locks to acquire based on the query predicates. We will later see in 1(c) how these granularities of locks neatly cover the types of queries we have to evaluate.
 
-Predicate locks are meant to prevent phantom rows, which are rows that are not present during the initial read of a transaction, but appear later due to concurrent transactions. As only queries look over "ranges" of tuples, they are the only operations that need to acquire predicate locks. Edits, on the other hand, only need to acquire tuple-level locks since it is explicitly specified which tuples they are adding/deleting.
+The different operations interact with the locks as follows:
 
-For a predicate lock to prevent a phantom, edits need to check that the relevant predicate locks covering the tuple they are about to edit do "permit" the edit, i.e. that they are not currently held by another transaction.
+Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ would require reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that would match this predicate, it will be blocked until the query transaction commits or rolls back. When it reads the present tuples, we also need to ensure we do not do any dirty reads from transactions that have not yet committed (or aborted). Thus, queries should use the `XSLock::permits_read` method that checks if the lock could be acquired in shared mode by this transaction. 
 
-If a query acquires a predicate lock that covers a tuple, it doesn't need to acquire the tuple-level lock for that tuple, since other edits will be stopped by the predicate lock before they can even acquire the tuple-level lock. However, to safely prevent dirty reads, queries still need to check that the tuple-level lock permits the read, i.e. that it is not currently held in exclusive mode by another transaction.
+There is an edge case of queries of the from $R(c_1, c_2)$, i.e. constant queries. For these queries, we will not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than just using `XSLock::permits_read`.
 
-Note that it is possible for a query to not acquire any predicate lock that covers a tuple it is about to read, in which case it needs to acquire the tuple-level lock in shared mode to prevent concurrent edits.
+Edit operations modify tuples from an explicit list. As they do not use any implicit ranges, they do not need to acquire any predicate locks. However, they still need to avoid causing phantoms, thus for every tuple they want to edit, they need to ensure that no other transaction has acquired a shared lock on the relevant group lock that would cover the predicate of this tuple. This is achieved by using the `SLock::permits_edit` method that checks if the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction should acquire an exclusive lock on the tuple itself, similar to standard two-phase locking.
 
-Apart from belonging to relations, groups or tuples, pointers to locks are held by transactions (@TransactionImg). We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (std::unordered_set) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a std::flat_set to store the locks that a transaction is waiting on.
+Apart from the lock objects and their owners (Group, Relation and DataTuple), we also describe the Transaction objects (@TransactionImg) which hold onto pointers to locks.  
 
-#figure(caption: "Relation and Group Classes")[
+#figure(caption: "Transaction Class")[
   #image("img/transaction.svg", width: 75%)
 ] <TransactionImg>
 
-When a transaction suspends, the deadlock detector (@deadlockDetectorImg) is triggered by the Database (@DatabaseImg) to check the waits-for graph for cycles. We choose to make this a separate class to ensure modularity (we can change the deadlock detection logic without affecting the Database class). The Database class is also the class that handles the aborting of transactions, and resumption of transactions in the event a deadlock is detected.
+We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (std::unordered_set) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a std::flat_set to store the locks that a transaction is waiting on.
 
-#figure(caption: "Deadlock Detector Class")[
-  #image("img/deadlock.svg", width: 75%)
-] <deadlockDetectorImg>
+These transactions are stored in a single Database object (@DatabaseImg) that acts as the global transaction and lock manager. On transactions finishing their execution, they will either be suspended or not. The Database class will be responsible for detecting deadlocks in the former case and releasing locks in the latter case. This is implemented in `Database::OnControl`.
 
 #figure(caption: "Database Class")[
   #image("img/database.svg", width: 75%)
 ] <DatabaseImg>
 
+We choose to move some the deadlock detection logic into a separate `DeadlockDetector` class (@DeadlockDetectorImg) composed into the Database class. This allows us to keep the core transaction and locking management logic separate from the deadlock detection logic.
+
+#figure(caption: "Deadlock Detector Class")[
+  #image("img/deadlock.svg", width: 75%)
+] <DeadlockDetectorImg>
+
 === iii
-We first describe the functions in the Lock classes:
+The locks exposes the following primary functions:
 
-`Lock::acquire(tx_id: TID, mode: LockMode) -> boolean`
+`Lock::acquire(tx_id: TID, mode: LockMode) -> boolean` \
+Attempts to register the transaction as a holder. For XSLocks, this includes checking for shared/exclusive compatibility (see @XSAcquire). If a conflict occurs (e.g., requesting EXCLUSIVE when another transaction holds the lock), it returns `false`. For SLocks, we can always add the transaction as a holder and return `true`.
 
-`Lock::acquire` attempts to acquire the lock for the transaction with the given ID in the specified mode (shared or exclusive). It returns true if the lock was successfully acquired, and false otherwise.
+`Transaction::acquire(lock: Lock, mode: LockMode) -> boolean` \
+A wrapper around `Lock::acquire` used by the execution engine. If `Lock::acquire` fails, the transaction is added to the lock's internal wait-queue and the transaction's `required_locks` set. The function returns `false` to signal that the transaction must be suspended.
 
-For SLocks, it just adds `tx_id` to the set of lock holders if it is not already in there. For XSLocks, to check if the lock can be acquired, as in @XSAcquire.
+`Lock::release(tx_id: TID)` \
+Removes the transaction from the holder set. This is called during commit or rollback via `Transaction::release_all_locks()` that not only releases the locks but also clears the transaction's `held_locks` set.
+
+`Lock::current_holders() -> &Set<TID>` \
+Returns the transactions currently holding the lock, used by the deadlock detector to construct the waits-for graph.
 
 #algorithm-figure(
   "XSLock::Acquire",
@@ -128,50 +141,43 @@ For SLocks, it just adds `tx_id` to the set of lock holders if it is not already
   },
 )<XSAcquire>
 
+The deadlock detector object provides the following function:
 
-`Lock::release(tx_id: TID) -> boolean`
 
-`Lock::release` removes the relevant transaction from the set of lock holders. It should only be called when the transaction is actually holding the lock.
+`DeadlockDetector::detect_cycle(tid: TID) -> Optional<TID>` \
+Performs a depth-first search starting from the given transaction ID, traversing through the waits-for graph by looking at the locks that the transaction is waiting on, and then looking at the transactions that are holding those locks, and so on. If we run into any back edge, then we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to be rolled back. This is described in more detail in @DetectCycle.
 
-`Lock::current_holders() -> &Set<TID>`
 
-`Lock::current_holders` directly returns a reference to the set of transaction IDs currently holding the lock. This is used by the deadlock detector to construct the waits-for graph.
 
-Most of the time, apart from registering the transaction with the lock, we also need to register the lock with the transaction. Thus, we provide the method `Transaction::acquire(lock: Lock, mode: LockMode) -> boolean` that attempts to acquire the lock for the transaction, and if successful, also adds the lock to the set of locks held by the transaction. If the lock cannot be acquired, then the transaction is added to the set of transactions waiting on the lock, and the method returns false.
-
-When a transaction runs until it either completes its operation or suspends, the call stack will unwind until control is returned to the relevant method within the Database class. We will then call `Database::on_control` which deal with cycle detection and fixing.
-
-#algorithm-figure(
-  "Database::OnControl",
-  line-numbers: false,
-  inset: -0.3em,
-  {
-    [
-      #pseudocode-list[
-        + *procedure* Database::OnControl(tid: TID, status: StatusCode)
-          + *if* status = SUSPENDED *then*
-            + *while* true *do*
-              + victim $<-$ deadlock_detector.detect_cycle(tid)
-              + *if* victim is empty *then* *break*
-              + \# Deadlock detected: rollback a victim
-              + rollback_transaction(victim)
-              + *if* victim $!=$ tid *then*
-                + \# If we didn't abort ourselves, we can try to resume
-                + resume_transaction(tid)
-                + *return*
-              + *end if*
-            + *end while*
-            + print "Transaction " + tid + " was suspended."
-          + *else*
-            + transactions[tid].clear_required_locks()
-          + *end if*
-        + *end procedure*
-      ]
-    ]
-  },
-)<OnControl>
-
-The key step in cycle detection is done via `DeadlockDetector::detect_cycle(tid: TID) -> Optional<TID>`, which performs a depth first search starting from the given transaction ID, traversing through the waits-for graph by looking at the locks that the transaction is waiting on, and then looking at the transactions that are holding those locks, and so on. If we run into any back edge, then we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to be rolled back. This is described in more detail in @DetectCycle.
+// #algorithm-figure(
+//   "Database::OnControl",
+//   line-numbers: false,
+//   inset: -0.3em,
+//   {
+//     [
+//       #pseudocode-list[
+//         + *procedure* Database::OnControl(tid: TID, status: StatusCode)
+//           + *if* status = SUSPENDED *then*
+//             + *while* true *do*
+//               + victim $<-$ deadlock_detector.detect_cycle(tid)
+//               + *if* victim is empty *then* *break*
+//               + \# Deadlock detected: rollback a victim
+//               + rollback_transaction(victim)
+//               + *if* victim $!=$ tid *then*
+//                 + \# If we didn't abort ourselves, we can try to resume
+//                 + resume_transaction(tid)
+//                 + *return*
+//               + *end if*
+//             + *end while*
+//             + print "Transaction " + tid + " was suspended."
+//           + *else*
+//             + transactions[tid].clear_required_locks()
+//           + *end if*
+//         + *end procedure*
+//       ]
+//     ]
+//   },
+// )<OnControl>
 
 #algorithm-figure(
   "Deadlock Detection",
@@ -220,9 +226,20 @@ The key step in cycle detection is done via `DeadlockDetector::detect_cycle(tid:
 
 == b
 === i
-The actual tuples are stored in the Relation class's tuples vector. We use a StableVector that works as a linked list of fixed-size blocks. This allows us to have stable pointers to tuples that can be stored in the various indices. Using a normal std::vector would require us to update all the pointers in the indices every time we resize the vector, while using a linked list would result in worse cache performance and allocation overhead.
+The tuples themselves are stored in the Relation class's tuples vector. We use a StableVector that works as a linked list of fixed-size blocks. This allows us to have stable pointers to tuples that can be stored in the various indices. Using a normal std::vector would require us to update all the pointers in the indices every time we resize the vector, while using a linked list would result in worse cache performance and allocation overhead. Note that we only ever add tuples to the end of the StableVector, and never remove tuples from the middle, deletion works by setting the alive flag to false in the DataTuple.
 
-We index 
+Based on the query patterns we will see later in 1(c), we maintain 3 kinds of hash indices on the relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$ where we want to efficiently iterate over all tuples matching a constant on the left or right attribute respectively. The third index is for queries of the form $R(X, X)$ where we want to efficiently iterate over all tuples where the left and right attributes are the same. Since each of these indices cover the same range as the predicate locks described above, we also put them in the group class.
+
+Note that we do not actually have a whole relation index. We opted not to do this because it would add more overhead to adding tuples while not providing a significant speedup since we can use our left/right indices to efficiently check if a given tuple already exists in the relation. To iterate over all tuples in the relation, we can directly iterate over the StableVector of tuples, which would be more efficient than using another index.
+
+=== ii
+We first discuss the methods exposed by the Relation class:
+
+`Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
+This method is used to add or delete a tuple from the relation. It first finds the DataTuple with the given left and right attributes exists (creating it if necessary), checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any of the lock checks or acquisitions fail, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true. 
+
+`Relation::get_tuple(left: uint32_t, right: uint32_t) -> DataTuple*` \
+This method retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary and so will never return null. Note that it does not gaurantee that the tuple is alive, so the caller should check the alive flag if they only want to consider alive tuples.
 
 = 2
 
