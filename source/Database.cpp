@@ -27,7 +27,8 @@ bool Database::commit_transaction(const TID &tid) {
     return false;
   }
 
-  it->second.commit();
+  StatusCode status = it->second.commit();
+  on_control(tid, status);
   return true;
 }
 
@@ -66,12 +67,12 @@ bool Database::delete_data(const TID &tid, const RelName &rel_name,
                            const std::string &csv_file) {
   auto it = transactions.find(tid);
   if (it == transactions.end()) {
-    std::println(out, "ERROR: transaction {} does not exist", tid);
+    std::println(out, "ERROR: transaction {} does not exist.", tid);
     return false;
   }
 
   if (relations.find(rel_name) == relations.end()) {
-    std::println(out, "ERROR: relation {} does not exist", rel_name);
+    std::println(out, "ERROR: relation {} does not exist.", rel_name);
     return false;
   }
 

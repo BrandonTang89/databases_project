@@ -31,6 +31,7 @@ bool DeadlockDetector::dfs_tx(const TID tid) {
 
 std::optional<TID> DeadlockDetector::detect_cycle(const TID &start_tid) {
   visited_tx.clear();
+  cycle.clear();
   bool has_cycle = dfs_tx(start_tid);
 
   if (has_cycle) {

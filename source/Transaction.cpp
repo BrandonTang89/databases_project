@@ -48,7 +48,7 @@ StatusCode Transaction::resume(bool silent_resume) {
   required_locks.clear();
   if (state == TransactionState::EXECUTING_QUERY) {
     if (!silent_resume) {
-      println("Resuming transaction {}.", tid);
+      std::println(out, "Resuming transaction {}.", tid);
     }
     return resume_query();
   } else if (state == TransactionState::EXECUTING_ADD ||
@@ -59,7 +59,8 @@ StatusCode Transaction::resume(bool silent_resume) {
     return resume_edit();
   } else {
     std::println(out, "ERROR: transaction is not suspended");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
   }
   return StatusCode::SUCCESS;
 }
@@ -68,7 +69,8 @@ StatusCode Transaction::start_edit(Relation *rel, const std::string &csv_file,
                                    bool new_alive) {
   if (state != TransactionState::READY) {
     std::println(out, "ERROR: transaction is not in READY state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
     return StatusCode::SUCCESS;
   }
   command_start_time = std::chrono::high_resolution_clock::now();
@@ -93,13 +95,13 @@ StatusCode Transaction::resume_edit() {
       state != TransactionState::EXECUTING_DELETE) {
     std::println(out, "ERROR: transaction is not in EXECUTING_ADD or "
                       "EXECUTING_DELETE state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
     return StatusCode::SUCCESS;
   }
 
   bool is_adding = (state == TransactionState::EXECUTING_ADD);
 
-  required_locks.emplace(&target_relation->whole_rel_lock);
   if (!target_relation->whole_rel_lock.permits(tid)) {
     debug("Transaction is waiting for whole_rel_lock");
     return StatusCode::SUSPENDED;
@@ -126,7 +128,8 @@ StatusCode Transaction::resume_edit() {
 StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
   if (state != TransactionState::READY) {
     std::println(out, "ERROR: transaction is not in READY state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
     return StatusCode::SUCCESS;
   }
   command_start_time = std::chrono::high_resolution_clock::now();
@@ -169,7 +172,8 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
 StatusCode Transaction::resume_query() {
   if (state != TransactionState::EXECUTING_QUERY) {
     std::println(out, "ERROR: transaction is not in EXECUTING_QUERY state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
     return StatusCode::SUCCESS;
   }
 
@@ -183,7 +187,7 @@ StatusCode Transaction::resume_query() {
           std::print(out, ",");
         }
       }
-      std::println(out, "");
+      std::println(out);
       continue;
     } else if (st == PipelineStatus::SUSPEND) {
       debug("Transaction is suspended while executing query.");
@@ -200,7 +204,8 @@ StatusCode Transaction::resume_query() {
 StatusCode Transaction::commit() {
   if (state != TransactionState::READY) {
     std::println(out, "ERROR: transaction is not in READY state.");
-    std::println(out, "Current state: {}", transaction_state_names[state]);
+    std::println(out, "Current state: {}",
+                 tx_state_names.at(static_cast<size_t>(state)));
     return is_suspended() ? StatusCode::SUSPENDED : StatusCode::SUCCESS;
   }
   state = TransactionState::COMMITTED;

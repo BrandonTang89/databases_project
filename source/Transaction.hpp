@@ -4,20 +4,18 @@
 #include "Relation.hpp"
 #include "Stage.hpp"
 #include "common.hpp"
+#include <array>
 #include <chrono>
 #include <flat_map>
 #include <iostream>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-static std::flat_map<TransactionState, std::string> transaction_state_names = {
-    {TransactionState::READY, "READY"},
-    {TransactionState::EXECUTING_QUERY, "EXECUTING_QUERY"},
-    {TransactionState::EXECUTING_ADD, "EXECUTING_ADD"},
-    {TransactionState::EXECUTING_DELETE, "EXECUTING_DELETE"},
-    {TransactionState::COMMITTED, "COMMITTED"},
-    {TransactionState::ABORTED, "ABORTED"},
+inline constexpr std::array<std::string_view, 6> tx_state_names = {
+    "READY",     "EXECUTING_QUERY", "EXECUTING_ADD", "EXECUTING_DELETE",
+    "COMMITTED", "ABORTED",
 };
 
 class Transaction {

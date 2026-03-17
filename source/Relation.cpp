@@ -37,7 +37,8 @@ void Relation::dep_group_locks(Transaction &tx, uint32_t left, uint32_t right,
   tx.required_locks.insert(&right_group.lock);
 }
 
-bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool newAlive) {
+bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right,
+                          bool newAlive) {
   // Only called by adding query
   const TID &tid = tx.tid;
   Group &left_group = leftToRightIndex[left];
@@ -57,17 +58,14 @@ bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool n
       tp->alive = newAlive;
       return true;
     }
-    return true;
-
   } else {
+    // tuple lock already inserted via tx.acquire()
     tx.required_locks.insert(&whole_rel_lock);
     dep_group_locks(tx, left, right, left_group, right_group);
-
     debug("Transaction {} is waiting to acquire lock for tuple ({}, {})", tid,
           left, right);
     return false;
   }
-  assert(false);
 }
 
 DataTuple *Relation::get_tuple(uint32_t left, uint32_t right) {

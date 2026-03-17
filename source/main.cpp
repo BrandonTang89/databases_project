@@ -139,7 +139,7 @@ int main() {
       std::string err;
       auto atoms = parse_query(body, err);
       if (!atoms) {
-        std::println("ERROR: invalid query syntax — {}", err);
+        std::println("ERROR: invalid query syntax - {}", err);
         continue;
       }
       db.query(tid, std::move(atoms.value()));
