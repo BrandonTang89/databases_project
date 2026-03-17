@@ -52,7 +52,7 @@ Within each Lock, we maintain an explicit set of transactions holding the lock. 
 
 
 === ii
-To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$." 
+To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$."
 
 #figure(caption: "Relation and Group Classes")[
   #image("img/group_relation.svg", width: 100%)
@@ -67,13 +67,13 @@ Relation locks belong directly to Relation objects (see @RelationGroupImg), whil
 
 The different operations interact with the locks as follows:
 
-Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ would require reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that would match this predicate, it will be blocked until the query transaction commits or rolls back. When it reads the present tuples, we also need to ensure we do not do any dirty reads from transactions that have not yet committed (or aborted). Thus, queries should use the `XSLock::permits_read` method that checks if the lock could be acquired in shared mode by this transaction. 
+Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ would require reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that would match this predicate, it will be blocked until the query transaction commits or rolls back. When it reads the present tuples, we also need to ensure we do not do any dirty reads from transactions that have not yet committed (or aborted). Thus, queries should use the `XSLock::permits_read` method that checks if the lock could be acquired in shared mode by this transaction.
 
 There is an edge case of queries of the from $R(c_1, c_2)$, i.e. constant queries. For these queries, we will not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than just using `XSLock::permits_read`.
 
 Edit operations modify tuples from an explicit list. As they do not use any implicit ranges, they do not need to acquire any predicate locks. However, they still need to avoid causing phantoms, thus for every tuple they want to edit, they need to ensure that no other transaction has acquired a shared lock on the relevant group lock that would cover the predicate of this tuple. This is achieved by using the `SLock::permits_edit` method that checks if the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction should acquire an exclusive lock on the tuple itself, similar to standard two-phase locking.
 
-Apart from the lock objects and their owners (Group, Relation and DataTuple), we also describe the Transaction objects (@TransactionImg) which hold onto pointers to locks.  
+Apart from the lock objects and their owners (Group, Relation and DataTuple), we also describe the Transaction objects (@TransactionImg) which hold onto pointers to locks.
 
 #figure(caption: "Transaction Class")[
   #image("img/transaction.svg", width: 75%)
@@ -235,13 +235,120 @@ Note that we do not actually have a whole relation index. We opted not to do thi
 === ii
 We first discuss the methods exposed by the Relation class:
 
-`Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
-This method is used to add or delete a tuple from the relation. It first finds the DataTuple with the given left and right attributes exists (creating it if necessary), checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any of the lock checks or acquisitions fail, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true. 
-
 `Relation::get_tuple(left: uint32_t, right: uint32_t) -> DataTuple*` \
-This method retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary and so will never return null. Note that it does not gaurantee that the tuple is alive, so the caller should check the alive flag if they only want to consider alive tuples.
+retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary and so will never return null. Note that it does not gaurantee that the tuple is alive, so the caller should check the alive flag if they only want to consider alive tuples. This works by using the `l_to_r_index` to find the group of tuples with the given left attribute, and then using the `Group::find` method to find the tuple with the given right attribute within that group. 
 
-= 2
+`Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
+is used to add or delete a tuple from the relation. It first finds the DataTuple via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any of the lock checks or acquisitions fail, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true.
+
+Then we discuss the methods exposed by the Group class:
+
+`Group::insert(tp: *DataTuple): unit`
+inserts the given tuple pointer into the group index. It is used when adding a new tuple to the relation and we need to update the indices.
+
+`Group::find(left: uint32_t, right: uint32_t) -> DataTuple*`
+finds the tuple with the given left and right attributes in the group index. It returns null if no such tuple exists. It is used to efficiently find tuples matching a given predicate when evaluating queries.
+
+== c
+
+== d & e
+We use a single algorithm for both adding and deleting, with just a difference in the new_alive parameter. An important design consideration was to ensure that when a transaction fails to be permitted by or acquire a lock, all relevant locks are recorded in the transaction's required_locks. This helps to ensure that deadlocks are detected as early as possible (without needing to resume transactions which cannot make meaningful progress).
+
+We also ensure to store the original value of tuples to allow rollbacks.
+
+#algorithm-figure(
+  "Single Tuple Edit Algorithm",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Relation::edit_tuple(tx: &Transaction, left: uint32_t, right: uint32_t,\  `         ` new_alive: bool) $->$ StatusCode
+          + tp $<-$ get_tuple(left, right) \# creates the tuple if it doesn't exist
+          + *if* permitted_by_locks(tx.tid, left, right) *and* tx.acquire(tp->lock, EXCLUSIVE) *then*
+            + *if* tp->alive $!=$ new_alive *then*
+              + tx.store_original(tp)
+              + tx.num_modified++
+              + tp->alive $<-$ new_alive
+            + *endif*
+            + *return* true;
+          + *else*
+            + insert_required_locks_for_edit(tx, left, right)
+            + *return* false;
+          + *end if*
+        + *end procedure*
+        + *procedure* Relation::permitted_by_locks(tx_id: TID, left: uint32_t, right: uint32_t) \ `          `$->$ boolean
+          + *if* $not$ whole_rel_lock.permits_edit(tx_id) *then* *return* false
+          + *if* left = right *and* $not$ diagonal_index.lock.permits(tx_id) *then* *return* false
+          + *if* $not$ l_to_r_index[left].lock.permits(tx_id) *then* *return* false
+          + *if* $not$ r_to_l_index[right].lock.permits(tx_id) *then* *return* false
+          + *return* true
+        + *end procedure*
+        + *procedure* Relation::insert_required_locks_for_edit(tx: &Transaction, left: uint32_t, right: uint32_t) $->$ unit
+          + \# tp.lock already inserted via tx.acquire()
+          + tx.required_locks.insert(&whole_rel_lock)
+          + *if* left = right *then*
+            + tx.required_locks.insert(&diagonal_index.lock)
+          + *end if*
+          + tx.required_locks.insert(&l_to_r_index[left].lock)
+          + tx.required_locks.insert(&r_to_l_index[right].lock)
+        + *end procedure*
+      ]
+    ]
+  },
+)<EditAlgorithm>
+
+== f
+When we commit, we just need to ensure that we are in a "ready" state to start a new operation and release all locks.
+
+#algorithm-figure(
+  "Commit Algorithm",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Transaction::commit() $->$ StatusCode
+          + *if* state $!=$ READY *then*
+            + print("Error: Trying to commit a transaction that is not ready.")
+            + *return* StatusCode::SUCCESS;
+          + *end if*
+
+          + *for* lock *in* held_locks *do*
+            + lock.release(tid)
+          + *end for*
+          + held_locks.clear()
+          + *return* StatusCode::SUCCESS;
+        + *end procedure*
+      ]
+    ]
+  },
+)<CommitAlgorithm>
+
+== g
+To rollback, we just need to restore the original values of the tuples and release the locks held.
+
+#algorithm-figure(
+  "Rollback Algorithm",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Transaction::rollback() $->$ StatusCode
+          + *for* (tp, original_alive) *in* original_values *do*
+            + tp->alive $<-$ original_alive
+          + *end for*
+          + *for* lock *in* held_locks *do*
+            + lock.release(tid)
+          + *end for*
+          + held_locks.clear()
+          + *return* StatusCode::SUCCESS;
+        + *end procedure*
+      ]
+    ]
+  },
+)<RollbackAlgorithm>
 
 = 3
 == a
@@ -307,3 +414,10 @@ This method retrieves a pointer to the DataTuple with the given left and right a
 ]
 
 == b
+The results show that my database implementation is optimised more for query-heavy workloads rather than write-heavy workloads. This makes sense since editing requires acquiring a large number of locks, filling in sets such as the `held_lock` set each transaction, as well as adding tuples to the various group indices. On the other hand, queries typically need to acquire less locks since we can acquire predicate locks that cover multiple tuples, and all these locks are SLocks which can always be acquired. 
+
+It is possible to trade off between these by increasing or decreasing the number of indices. For example, we could have made an extra index over the whole relation, or we could have chosen to only create group locks but not group indices. However, I believe my selection to be fairly sensible, avoiding any obviously bad types of queries.
+
+Having more open transactions doesn't necessarily slow down things much if the transactions operate on different parts of the database. The different transactions can acquire locks on different parts of the database and operate mostly independently.
+
+However, if we start having conflicts and suspensions, then we incur the overhead of running the DFS-based deadlock detection algorithm each time. As much as we try to avoid locking whole relations, certain types of queries (such as $R(x, y)$) will still require whole relation locks, thus when we have many transactions which have run many queries, it will be quite difficult to any transaction to edit any tuples. That being said, this is a problem intrinsic to having serializable isolation rather than my implementation.

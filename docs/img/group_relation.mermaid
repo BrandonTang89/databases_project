@@ -15,6 +15,6 @@ classDiagram
       +lock: SLock
 
       -make_key(left: u32, right: u32) u64
-      +insert(left: u32, right: u32) unit
+      +insert(tp: *DataTuple) unit
       +find(left: u32, right: u32) *DataTuple
     }
