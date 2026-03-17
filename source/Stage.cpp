@@ -37,8 +37,8 @@ Stage::Stage(size_t stage_index, Transaction &trx)
 
     var_idx = tx.var_idx[variable.name];
     const_val = constant.value;
-    group = left_is_const ? &rel->leftToRightIndex[const_val]
-                          : &rel->rightToLeftIndex[const_val];
+    group = left_is_const ? &rel->l_to_r_index[const_val]
+                          : &rel->r_to_l_index[const_val];
     group_setup();
 
   } else if (left_is_var && right_is_var) {
@@ -46,7 +46,7 @@ Stage::Stage(size_t stage_index, Transaction &trx)
     var2_idx = tx.var_idx[std::get<Variable>(atom->right).name];
 
     if (var_idx == var2_idx) {
-      group = &rel->diagonalIndex;
+      group = &rel->diagonal_index;
       group_setup();
     } else {
 
@@ -298,7 +298,7 @@ PipelineStatus Stage::next_join_left() {
       if (st != PipelineStatus::OK) {
         return st;
       }
-      group = &rel->leftToRightIndex[(*channel)[var_idx]];
+      group = &rel->l_to_r_index[(*channel)[var_idx]];
       group_iter = group->tuples.begin();
       tx.acquire(group->lock, LockMode::SHARED);
       // acquire never fails beacuse its on an SLock
@@ -332,7 +332,7 @@ PipelineStatus Stage::next_join_right() {
       if (st != PipelineStatus::OK) {
         return st;
       }
-      group = &rel->rightToLeftIndex[(*channel)[var2_idx]];
+      group = &rel->r_to_l_index[(*channel)[var2_idx]];
       group_iter = group->tuples.begin();
       tx.acquire(group->lock, LockMode::SHARED);
       // acquire never fails beacuse its on an SLock

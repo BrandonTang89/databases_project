@@ -126,7 +126,7 @@ For each R(s, t) in the query:
     - if x in S
       - W' = W.filter(w -> (w.x, w.x) in R) acquiring tuple locks on R(w.x, w.x)
     - else
-      - W' = W x R.diagonalIndex
+      - W' = W x R.diagonal_index
 ```
 
 Detecting deadlocks is not super trivial:

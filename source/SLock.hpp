@@ -33,9 +33,9 @@ public:
   }
 
   /**
-   * A lock permits if it is not held or held exclusively by this transaction.
+   * A lock permits edits if there is no other lock holder on it
    */
-  bool permits(const TID &tid) const {
+  bool permits_edit(const TID &tid) const {
     return lock_holders_.empty() ||
            (lock_holders_.size() == 1 && is_held_by(tid));
   }

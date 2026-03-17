@@ -1,0 +1,11 @@
+classDiagram
+
+    class DeadlockDetector {
+        -visited_tx: Set~TID~
+        -transactions: &Map~TID, Transaction~
+        -cycle: Vec~TID~
+
+        +DeadlockDetector(txs: &Map~TID, Transaction~) DeadlockDetector
+        +detect_cycle(start_tx: TID) Option~TID~
+        -dfs(tid: TID) boolean
+    }

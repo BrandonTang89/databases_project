@@ -10,9 +10,9 @@ class Relation {
 
 public:
   StableVector<DataTuple, 2048> tuples;
-  std::unordered_map<uint32_t, Group> leftToRightIndex;
-  std::unordered_map<uint32_t, Group> rightToLeftIndex;
-  Group diagonalIndex; // index for tuples where left == right
+  std::unordered_map<uint32_t, Group> l_to_r_index;
+  std::unordered_map<uint32_t, Group> r_to_l_index;
+  Group diagonal_index; // index for tuples where left == right
   SLock whole_rel_lock{};
 
   /**

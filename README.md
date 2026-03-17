@@ -4,26 +4,18 @@
 The report is provided at [docs/ProjectReport_1075201.pdf](docs/ProjectReport_1075201.pdf).
 
 ## Build and Run
-### Build and Run with Nix
-To ensure reproducibility, I chose to use [Nix](https://nixos.org/) to manage dependencies and build the project.
-
-Nix flakes are a way to ensure we both have the *exact* same version of all dependencies. 
-
-It gives a shell with all the dependencies in the path.
-- Install nix: https://nixos.org/download.html
-- `nix develop --experimental-features 'nix-command flakes'` to enter the development environment
-
-Now, we just use
-- `build release` to build the project
-- `run release` to both build and run the project
-
-These internally call the relevant CMake build commands.
-
-### Build and Run without Nix
-I believe if you have the right GCC version (15.2.0) installed, the following should also just work:
+### With CMake, GCC and Ninja
+With GCC 15.2.0, the following should just work:
 - `cmake --preset release` to configure the project
 - `cmake --build --preset release -j 8` to build the project
 - `./build/release/databases_project` to run the project
+
+This has been written into `compile.sh`
+
+### With Just GCC
+Run `./compile_nocmake.sh` to use a single invocation of `g++` to compile the release binary. 
+
+Similarly it will be written to `./build/release/databases_project`.
 
 ## Testing
 We have 2 types of testing processes:
@@ -88,3 +80,13 @@ Both `perf` and `flamegraph` are provided in the Nix development environment, so
 - `benchmarks/benchmark_parts/bench_in/`: Contains input files for each step of the benchmark.
 - `benchmarks/benchmark_parts/bench_out/`: Contains benchmark results and profiles.
 - `benchmarks/DBSI-2026/`: Contains the data, queries, and updates used by the benchmarks.
+
+## Nix Flake Helpers
+Use the following to get a development shell:
+- `nix develop --experimental-features 'nix-command flakes'`
+
+This provides some helper commands:
+- `build release` to build the project
+- `run release` to both build and run the project
+
+These internally call the relevant CMake build commands.

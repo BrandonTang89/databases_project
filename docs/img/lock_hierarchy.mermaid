@@ -1,0 +1,29 @@
+classDiagram
+
+direction BT
+class Lock {
+    +acquire(tx_id: TID, mode: LockMode) boolean*
+    +release(tx_id: TID) unit*
+    +current_holders() &Set~TID~*
+}
+<<Abstract>> Lock
+
+SLock --|> Lock : Extends
+class SLock {
+    lock_holders: Set~TID~
+    +permits_edit(tx_id: TID) boolean
+    +acquire(tx_id: TID) boolean
+    +release(tx_id: TID) unit
+    +current_holders() &Set~TID~
+}
+
+XSLock --|> Lock : Extends
+class XSLock {
+    lock_holders: Set~TID~
+    held_exclusively: boolean
+    +permits_read(tx_id: TID) boolean
+    +acquire(tx_id: TID) boolean
+    +release(tx_id: TID) unit
+    +current_holders() &Set~TID~
+    -is_held_by(tx_id: TID) boolean
+}

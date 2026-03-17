@@ -1,0 +1,37 @@
+classDiagram
+
+    class Transaction {
+      -tid: TID
+      -txBornAt: usize
+      -relations: &Map~String, Relation~
+      -state: TxState
+      -held_locks: Set~*Lock~
+      -required_locks: Set~*Lock~
+      -command_start_time: time_point
+      -original_alive: Map~*DataTuple, boolean~
+      -target_relation: *Relation
+      -incoming_tuples: Vec~[u32, u32]~
+      -incoming_index: usize
+      -num_modified: usize
+      -query_atoms: Vec~QueryAtom~
+      -var_idx: Map~String, usize~
+      -stages: Vec~PipelineStage~
+      -query_buffer: Vec~u32~
+      -num_answers: usize
+
+      -store_original(tp: *DataTuple) void
+      -release_locks() void
+      -resume_query() StatusCode
+      -resume_edit() StatusCode
+
+      +Transaction(tx_id: TID, bornAt: usize, rels: &map~string, Relation~) Transaction
+      +acquire(lock: Lock, mode: LockMode) bool
+      +start_edit(rel: *Relation, csv_file: string, newAlive: bool) StatusCode
+      +start_query(query_atoms: Vec~QueryAtom~) StatusCode
+      +resume() StatusCode
+      +commit() StatusCode
+      +rollback() StatusCode
+      +clear_required_locks() void
+      +get_tid() const TID&
+    }
+

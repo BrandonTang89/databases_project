@@ -102,7 +102,7 @@ StatusCode Transaction::resume_edit() {
 
   bool is_adding = (state == TransactionState::EXECUTING_ADD);
 
-  if (!target_relation->whole_rel_lock.permits(tid)) {
+  if (!target_relation->whole_rel_lock.permits_edit(tid)) {
     debug("Transaction is waiting for whole_rel_lock");
     return StatusCode::SUSPENDED;
   }

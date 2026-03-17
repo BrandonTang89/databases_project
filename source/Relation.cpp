@@ -9,18 +9,18 @@
 bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
                                  Group &left_group, Group &right_group) {
   if (left == right) {
-    if (!diagonalIndex.lock.permits(tid)) {
+    if (!diagonal_index.lock.permits_edit(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);
       return false;
     }
   }
 
-  if (!left_group.lock.permits(tid)) {
+  if (!left_group.lock.permits_edit(tid)) {
     debug("Transaction {} is waiting for left group lock for value {}", tid,
           left);
     return false;
   }
-  if (!right_group.lock.permits(tid)) {
+  if (!right_group.lock.permits_edit(tid)) {
     debug("Transaction {} is waiting for right group lock for value {}", tid,
           right);
     return false;
@@ -31,7 +31,7 @@ bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
 void Relation::dep_group_locks(Transaction &tx, uint32_t left, uint32_t right,
                                Group &left_group, Group &right_group) {
   if (left == right) {
-    tx.required_locks.insert(&diagonalIndex.lock);
+    tx.required_locks.insert(&diagonal_index.lock);
   }
   tx.required_locks.insert(&left_group.lock);
   tx.required_locks.insert(&right_group.lock);
@@ -41,8 +41,8 @@ bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right,
                           bool newAlive) {
   // Only called by adding query
   const TID &tid = tx.tid;
-  Group &left_group = leftToRightIndex[left];
-  Group &right_group = rightToLeftIndex[right];
+  Group &left_group = l_to_r_index[left];
+  Group &right_group = r_to_l_index[right];
   DataTuple *tp = ensure_tuple(left, right);
   if (check_group_locks(tid, left, right, left_group, right_group) &&
       tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
@@ -73,15 +73,15 @@ DataTuple *Relation::get_tuple(uint32_t left, uint32_t right) {
 }
 
 DataTuple *Relation::ensure_tuple(uint32_t left, uint32_t right) {
-  Group &group = leftToRightIndex[left];
+  Group &group = l_to_r_index[left];
   DataTuple *tp = group.find(left, right);
   if (!tp) {
     // tuple does not exist, so we need to add it
     tp = tuples.emplace(left, right);
     group.insert(tp);
-    rightToLeftIndex[right].insert(tp);
+    r_to_l_index[right].insert(tp);
     if (left == right) {
-      diagonalIndex.insert(tp);
+      diagonal_index.insert(tp);
     }
     return tp;
   } else {
