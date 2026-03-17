@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DataTuple.hpp"
 #include "Group.hpp"
 #include "Relation.hpp"
 #include "StableVector.hpp"
@@ -16,8 +15,7 @@ public:
   Stage *previous{nullptr};
   size_t num_output_vars{0};
   size_t num_input_vars{0};
-  std::vector<uint32_t> *input{nullptr};
-  std::vector<uint32_t> output{};
+  std::vector<uint32_t> *channel{nullptr};
 
   bool left_is_const;
   bool right_is_const;
@@ -77,15 +75,6 @@ public:
   PipelineStatus next_relation_product();
   PipelineStatus next_join_left();  // join on R(existing, new)
   PipelineStatus next_join_right(); // join on R(new, existing)
-
-  std::vector<uint32_t> *get_out_channel() {
-    if (type == StageType::GROUP_FILTER || type == StageType::RELATION_FILTER ||
-        type == StageType::CONST_CONST) {
-      return input;
-    } else {
-      return &output;
-    }
-  }
 
 private:
   void group_setup();

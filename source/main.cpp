@@ -1,5 +1,6 @@
 #include "Database.hpp"
 
+#include <ios>
 #include <iostream>
 #include <print>
 #include <string>
@@ -21,18 +22,18 @@ static void usage(const std::string &cmd) {
     std::println("Usage: COMMIT <tid>");
   else if (cmd == "ROLLBACK")
     std::println("Usage: ROLLBACK <tid>");
-  else if (cmd == "QUERY")
-    std::println(
-        "Usage: QUERY <tid> RelName(arg,arg) [, RelName(arg,arg) ...]");
   else if (cmd == "RESUME") {
     std::println("Usage: RESUME <tid>");
-  }
+  } else if (cmd == "QUERY")
+    std::println(
+        "Usage: QUERY <tid> RelName(arg,arg) [, RelName(arg,arg) ...]");
 }
 
 // ---------------------------------------------------------------------------
 // Main REPL
 // ---------------------------------------------------------------------------
 int main() {
+  std::cout.tie(nullptr);
   Database db;
   std::string line;
 

@@ -154,6 +154,8 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
 
   // Build the stages
   this->query_atoms = std::move(query); // the stages need the query atoms
+  query_channel.clear();
+  query_channel.resize(var_idx.size());
   stages.clear();
   stages.reserve(query_atoms.size() + 1);
   for (size_t i = 0; i <= query_atoms.size(); ++i) {
@@ -175,13 +177,13 @@ StatusCode Transaction::resume_query() {
     PipelineStatus st = stages.back().next();
     if (st == PipelineStatus::OK) {
       num_answers++;
-      for (size_t i = 0; i < stages.back().num_output_vars; ++i) {
-        std::cout << stages.back().get_out_channel()->at(i);
-        if (i < stages.back().num_output_vars - 1) {
-          std::cout << ",";
+      for (size_t i = 0; i < query_channel.size(); ++i) {
+        std::print(out, "{}", query_channel[i]);
+        if (i < query_channel.size() - 1) {
+          std::print(out, ",");
         }
       }
-      std::cout << "\n";
+      std::println(out, "");
       continue;
     } else if (st == PipelineStatus::SUSPEND) {
       debug("Transaction is suspended while executing query.");

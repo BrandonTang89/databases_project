@@ -11,10 +11,10 @@ Stage::Stage(size_t stage_index, Transaction &trx)
     type = StageType::INITIAL;
     return;
   }
-
+  
+  channel = &tx.query_channel;
   atom = &tx.query_atoms[stage_idx - 1];
   previous = &tx.stages[stage_idx - 1];
-  input = previous->get_out_channel();
   num_input_vars = previous->num_output_vars;
   rel = &tx.relations.at(atom->relation);
 
@@ -55,7 +55,6 @@ Stage::Stage(size_t stage_index, Transaction &trx)
         type = StageType::RELATION_PRODUCT;
         tx.acquire(rel->whole_rel_lock, LockMode::SHARED);
         num_output_vars = num_input_vars + 2;
-        output.resize(num_output_vars);
 
         if (num_input_vars == 0) {
           // produces the first tuples
@@ -69,12 +68,10 @@ Stage::Stage(size_t stage_index, Transaction &trx)
         // var_idx is new, var2_idx is existing
         type = StageType::JOIN_RIGHT;
         num_output_vars = num_input_vars + 1;
-        output.resize(num_output_vars);
       } else if (var2_idx >= num_input_vars) {
         // var2_idx is new, var_idx is existing
         type = StageType::JOIN_LEFT;
         num_output_vars = num_input_vars + 1;
-        output.resize(num_output_vars);
       } else {
         type = StageType::RELATION_FILTER;
         tx.acquire(rel->whole_rel_lock, LockMode::SHARED);
@@ -94,7 +91,6 @@ void Stage::group_setup() {
   if (introduces_new_var) {
     type = StageType::GROUP_PRODUCT;
     num_output_vars = num_input_vars + 1;
-    output.resize(num_output_vars);
 
     if (num_input_vars == 0) {
       // produces the first tuples
@@ -163,12 +159,12 @@ PipelineStatus Stage::next_group_filter() {
     // Check the new input
     DataTuple *tp{};
     if (left_is_const && right_is_var) {
-      tp = group->find(const_val, input->at(var_idx));
+      tp = group->find(const_val, (*channel)[var_idx]);
     } else if (left_is_var && right_is_const) {
-      tp = group->find(input->at(var_idx), const_val);
+      tp = group->find((*channel)[var_idx], const_val);
     } else if (left_is_var && right_is_var) {
       assert(var_idx == var2_idx && "group filter only for diagonal");
-      tp = group->find(input->at(var_idx), input->at(var2_idx));
+      tp = group->find((*channel)[var_idx], (*channel)[var2_idx]);
     } else {
       assert(false && "invalid setup for group filter");
     }
@@ -211,7 +207,6 @@ PipelineStatus Stage::next_group_product() {
       if (st != PipelineStatus::OK) {
         return st;
       }
-      std::copy(input->begin(), input->end(), output.begin());
       group_iter = group->tuples.begin();
     }
 
@@ -225,7 +220,7 @@ PipelineStatus Stage::next_group_product() {
     if (!tp->alive) {
       continue;
     }
-    output[var_idx] = left_is_const ? tp->right : tp->left;
+    (*channel)[var_idx] = left_is_const ? tp->right : tp->left;
     // diagonal group either left or right is okay
     return PipelineStatus::OK;
   }
@@ -239,8 +234,8 @@ PipelineStatus Stage::next_relation_filter() {
     }
 
     // Check the new input
-    uint32_t left_val = input->at(var_idx);
-    uint32_t right_val = input->at(var2_idx);
+    uint32_t left_val = (*channel)[var_idx];
+    uint32_t right_val = (*channel)[var2_idx];
     DataTuple *tp = rel->get_tuple(left_val, right_val);
     assert(tp && "tuple should always exist");
     bool permitted = tp->lock.permits_read(tx.tid);
@@ -273,7 +268,6 @@ PipelineStatus Stage::next_relation_product() {
       if (st != PipelineStatus::OK) {
         return st;
       }
-      std::copy(input->begin(), input->end(), output.begin());
       rel_iter = rel->tuples.begin();
     }
 
@@ -286,8 +280,8 @@ PipelineStatus Stage::next_relation_product() {
       // Skip dead (never-inserted or deleted) tuples
       continue;
     }
-    output[var_idx] = tp->left;
-    output[var2_idx] = tp->right;
+    (*channel)[var_idx] = tp->left;
+    (*channel)[var2_idx] = tp->right;
     return PipelineStatus::OK;
   }
 }
@@ -299,8 +293,7 @@ PipelineStatus Stage::next_join_left() {
     if (st != PipelineStatus::OK) {
       return st;
     }
-    std::copy(input->begin(), input->end(), output.begin());
-    group = &rel->leftToRightIndex[input->at(var_idx)];
+    group = &rel->leftToRightIndex[(*channel)[var_idx]];
     group_iter = group->tuples.begin();
     tx.acquire(group->lock, LockMode::SHARED);
     group_iter_valid = true;
@@ -317,7 +310,7 @@ PipelineStatus Stage::next_join_left() {
     if (!tp->alive) {
       continue;
     }
-    output[var2_idx] = tp->right;
+    (*channel)[var2_idx] = tp->right;
     return PipelineStatus::OK;
   }
   group_iter_valid = false;
@@ -331,8 +324,7 @@ PipelineStatus Stage::next_join_right() {
     if (st != PipelineStatus::OK) {
       return st;
     }
-    std::copy(input->begin(), input->end(), output.begin());
-    group = &rel->rightToLeftIndex[input->at(var2_idx)];
+    group = &rel->rightToLeftIndex[(*channel)[var2_idx]];
     group_iter = group->tuples.begin();
     tx.acquire(group->lock, LockMode::SHARED);
     group_iter_valid = true;
@@ -349,7 +341,7 @@ PipelineStatus Stage::next_join_right() {
     if (!tp->alive) {
       continue;
     }
-    output[var_idx] = tp->left;
+    (*channel)[var_idx] = tp->left;
     return PipelineStatus::OK;
   }
   group_iter_valid = false;

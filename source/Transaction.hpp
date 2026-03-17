@@ -48,7 +48,7 @@ class Transaction {
   std::vector<QueryAtom> query_atoms;         // |query|
   std::flat_map<std::string, size_t> var_idx; // |num_vars|
   std::vector<Stage> stages;                  // |query|
-  std::vector<size_t> input_variables; // num vars in channels[i], |query| + 1
+  std::vector<uint32_t> query_channel;        // |num_vars|
   size_t num_answers{0};
 
   bool is_suspended() const;
