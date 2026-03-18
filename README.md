@@ -1,7 +1,7 @@
 # Databases Mini-Project
 
 ## Documentation
-The report is provided at [docs/ProjectReport_1075201.pdf](docs/ProjectReport_1075201.pdf).
+The report is provided at [ProjectReport_1075201.pdf](docs/ProjectReport_1075201.pdf).
 
 ## Build and Run
 ### With CMake, GCC and Ninja
