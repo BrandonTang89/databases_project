@@ -69,13 +69,13 @@ Relation locks belong directly to `Relation` objects (see @RelationGroupImg), wh
 
 The different operations interact with the locks as follows:
 
-Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ requires reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that matches this predicate, it is blocked until the query transaction commits or rolls back. While reading existing tuples, we also need to prevent dirty reads from transactions that have not yet committed (or have aborted). Thus, queries use the `XSLock::permits_read` method, which checks whether the lock could be acquired in shared mode by this transaction.
+Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ requires reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that matches this predicate, it is blocked until the query transaction commits or rolls back. While reading existing tuples, we also need to prevent dirty reads from transactions that have not yet committed (or have aborted). Thus, queries call `Transaction::get_read_permit`, which checks `XSLock::permits_read` and records the tuple lock in `required_locks` when permission is denied.
 
 There is an edge case for queries of the form $R(c_1, c_2)$, i.e. constant queries. For these queries, we do not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than only using `XSLock::permits_read`.
 
 Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly#footnote[Thus we do not use `XSLocks` for predicate locks.]. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
 
-Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple`), we also describe the rest of the lock managment system, starting with `Transaction` objects (@TransactionImg) which hold onto pointers to locks.
+Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple`), we also describe the rest of the lock management system, starting with `Transaction` objects (@TransactionImg) which hold onto pointers to locks.
 
 #figure(caption: "Transaction Class")[
   #image("img/transaction.svg", width: 75%)
@@ -101,14 +101,17 @@ The locks expose the following primary functions:
 `Lock::acquire(tx_id: TID, mode: LockMode) -> boolean` \
 Attempts to register the transaction as a holder. For XSLocks, this includes checking for shared/exclusive compatibility (see @XSAcquire). If a conflict occurs (e.g., requesting EXCLUSIVE when another transaction holds the lock), it returns `false`. For SLocks, we can always add the transaction as a holder and return `true`.
 
-`Transaction::acquire(lock: Lock, mode: LockMode) -> boolean` \
-A wrapper around `Lock::acquire` used by the execution engine. If `Lock::acquire` fails, the transaction is added to the lock's internal wait-queue and the transaction's `required_locks` set. The function returns `false` to signal that the transaction must be suspended.
-
 `Lock::release(tx_id: TID)` \
 Removes the transaction from the holder set. This is called during commit or rollback via `Transaction::release_all_locks()`, which both releases locks and clears the transaction's `held_locks` set.
 
 `Lock::current_holders() -> &Set<TID>` \
 Returns the transactions currently holding the lock, used by the deadlock detector to construct the waits-for graph.
+
+`SLock::permits_edit(tx_id: TID) -> boolean` \
+Checks whether the transaction can acquire the lock in exclusive mode, used by edit operations to prevent phantoms. This returns `false` if there is another transaction holding the lock (apart from `tx_id` itself), and `true` otherwise.
+
+`XSLock::permits_read(tx_id: TID) -> boolean` \
+Checks whether the transaction can acquire the lock in shared mode, used by query operations to prevent dirty reads. This returns `false` if there is another transaction holding the lock in exclusive mode (apart from `tx_id` itself), and `true` otherwise.
 
 #algorithm-figure(
   "XSLock::Acquire",
@@ -142,6 +145,15 @@ Returns the transactions currently holding the lock, used by the deadlock detect
     ]
   },
 )<XSAcquire>
+
+The transaction objects expose the following primary functions related to lock management:
+
+`Transaction::acquire(lock: Lock, mode: LockMode) -> boolean` \
+A wrapper around `Lock::acquire` used by the execution engine. If `Lock::acquire` fails, the transaction is added to the lock's internal wait-queue and the transaction's `required_locks` set. The function returns `false` to signal that the transaction must be suspended.
+
+`Transaction::get_read_permit(lock: XSLock) -> boolean` \
+Checks whether the transaction is allowed to read a tuple lock (`lock.permits_read(tid)`). If not, the lock pointer is inserted into `required_locks` before returning `false`, so suspended query stages expose the correct waits-for dependencies.
+
 
 The deadlock detector object provides the following function:
 
@@ -232,7 +244,7 @@ The tuples themselves are stored in the `Relation` class's tuple container. We u
 
 Based on the query patterns discussed in 1(c), we maintain three kinds of hash indices on each relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$, where we want to efficiently iterate over all tuples matching a constant on the left or right attribute, respectively. The third index is for queries of the form $R(X, X)$, where we want to efficiently iterate over all tuples whose left and right attributes are equal. Since each of these indices covers the same range as the predicate locks described above, we also place them in the `Group` class.
 
-Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speedup: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the tuples `StableVector`, which is more efficient than maintaining an additional index for this purpose.
+Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speed-up: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the tuples `StableVector`, which is more efficient than maintaining an additional index for this purpose.
 
 === ii
 We first discuss the methods exposed by the `Relation` class:
@@ -426,6 +438,10 @@ These are implemented in volcano style in a mostly straightforward way:
 - `next_group_product` and `next_relation_product` maintain an iterator over the group or relation respectively to construct the cartesian product. With the same input tuple, they produce many output tuples until the iterator is exhausted, then they call `previous.next()` to get a new input tuple and reset the iterator.
 - `next_join_left` and `next_join_right` are similar to the `next_group_product` but instead of iterating over the same group all the time, the group they iterate over depends on the current input tuple from the previous stage, as they need to find tuples that match on one attribute with the input tuple.
 
+All these methods need to remember to check for read permission from the relevant tuple level locks. The join operations additionally need to acquire the relevant group locks when they move to a new group based on the input tuple from the previous stage.
+
+If any call to `previous.next()` suspends or any lock check/acquisition fails, the method needs to suspend and return `SUSPEND` without advancing the state of the stage, so that when it is resumed, it can retry the same operation from the same point. The stages ensure the state is maintained by not advancing the iterators for products and joins and by using the `call_next` boolean for filters to indicate whether the next call should call `previous.next()` or not.
+
 We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_product()`, and `Stage::next_join_left()` as examples of how the different stage types are implemented. The other stage types are implemented similarly based on the logic described above.
 
 #algorithm-figure(
@@ -450,7 +466,7 @@ We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_produ
             +
             + *while* group_iter $!=$ group.tuples.end() *do*
               + tp $<-$ group_iter.second
-              + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
+              + *if* $not$ tx.get_read_permit(tp.lock) *then* *return* SUSPEND
               + group_iter $<-$ group_iter + 1
               + *if* tp.alive *then*
                 + channel[var2_idx] $<-$ tp.right
@@ -480,7 +496,7 @@ We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_produ
             + *end if*
             +
             + tp $<-$ group_iter.second
-            + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
+            + *if* $not$ tx.get_read_permit(tp.lock) *then* *return* SUSPEND
             + group_iter $<-$ group_iter + 1
             + *if* tp.alive *then*
               + *if* left_is_const *then* channel[var_idx] $<-$ tp.right
@@ -492,19 +508,29 @@ We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_produ
 
         + *procedure* Stage::NextRelationFilter() $->$ PipelineStatus
           + *loop*
-            + *match* previous.next()
-              + OK $=>$
-                + tp $<-$ rel.get_tuple(channel[var_idx], channel[var2_idx])
-                + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
-                + *if* tp.alive *then* *return* OK
-              + other $=>$ *return* other
-            + *end match*
+            + *if* call_next *then*
+              + *match* previous.next()
+                + OK $=>$ pass
+                + other $=>$ *return* other
+              + *end match*
+            + *end if*
+            + tp $<-$ rel.get_tuple(channel[var_idx], channel[var2_idx])
+            + *if* $not$ tx.get_read_permit(tp.lock) *then*
+              + call_next $<-$ false
+              + *return* SUSPEND
+            + *end if*
+            + call_next $<-$ true
+            + *if* tp.alive *then* *return* OK
           + *end loop*
         + *end procedure*
       ]
     ]
   },
 )<QueryMethods>
+
+We note that an alternative design for the stages would be to use inheritance and have a separate class for each stage type. This would reduce the number of state variables that are used to suspend the stages. However, as different types of stages share different subsets of the state variables, we felt it was unnecessarily complex to break down the stages into separate classes. Furthermore, doing so would require the different stages to be allocated separately rather than being stored in a contiguous vector, which would lead to worse cache performance and more complex memory management.
+
+An alternatively algorithm all together would have been to use an eager set-at-a-time style algorithm for query evaluation. However, we felt that this would have worse memory performance due to the need to materialize a potentially large number of intermediate tuples at once, and is less natural to implement with suspensions.
 
 == d & e
 We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, all relevant locks are recorded in the transaction's `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).

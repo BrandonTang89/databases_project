@@ -27,9 +27,10 @@ public:
   uint32_t const_val = 0;
   Group *group;
 
-  bool group_iter_valid = false;
-  decltype(Group::tuples)::iterator group_iter;
-  decltype(Relation::tuples)::iterator rel_iter;
+  bool call_next = true; // for filters to indicate whether the next call should call previous.next() or not 
+  bool group_iter_valid = false; // for joins to know whether they need to pull a new tuple
+  decltype(Group::tuples)::iterator group_iter; // for group product and joins
+  decltype(Relation::tuples)::iterator rel_iter; // for relation product
 
   Stage(size_t stage_index, Transaction &trx);
 

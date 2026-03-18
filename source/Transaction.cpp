@@ -21,6 +21,14 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
   }
 }
 
+bool Transaction::get_read_permit(XSLock &lock) {
+  if (lock.permits_read(tid)) {
+    return true;
+  }
+  required_locks.insert(&lock);
+  return false;
+}
+
 Transaction::Transaction(std::ostream &output, const TID &transaction_id,
                          size_t _age,
                          std::unordered_map<RelName, Relation> &rels)

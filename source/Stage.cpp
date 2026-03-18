@@ -155,9 +155,11 @@ PipelineStatus Stage::next_const_const() {
 
 PipelineStatus Stage::next_group_filter() {
   while (true) {
-    PipelineStatus st = previous->next();
-    if (st != PipelineStatus::OK) {
-      return st;
+    if (call_next) {
+      PipelineStatus st = previous->next();
+      if (st != PipelineStatus::OK) {
+        return st;
+      }
     }
 
     // Check the new input
@@ -177,10 +179,11 @@ PipelineStatus Stage::next_group_filter() {
     if (!tp) {
       continue;
     }
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
+    if (!tx.get_read_permit(tp->lock)) {
+      call_next = false;
       return PipelineStatus::SUSPEND;
-
+    }
+    call_next = true;
     if (tp->alive) {
       // passes the filter
       return PipelineStatus::OK;
@@ -215,8 +218,7 @@ PipelineStatus Stage::next_group_product() {
     }
 
     DataTuple *tp = group_iter->second;
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
+    if (!tx.get_read_permit(tp->lock))
       return PipelineStatus::SUSPEND;
 
     group_iter++;
@@ -232,9 +234,11 @@ PipelineStatus Stage::next_group_product() {
 
 PipelineStatus Stage::next_relation_filter() {
   while (true) {
-    PipelineStatus st = previous->next();
-    if (st != PipelineStatus::OK) {
-      return st;
+    if (call_next) {
+      PipelineStatus st = previous->next();
+      if (st != PipelineStatus::OK) {
+        return st;
+      }
     }
 
     // Check the new input
@@ -242,10 +246,11 @@ PipelineStatus Stage::next_relation_filter() {
     uint32_t right_val = (*channel)[var2_idx];
     DataTuple *tp = rel->get_tuple(left_val, right_val);
     assert(tp && "tuple should always exist");
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
+    if (!tx.get_read_permit(tp->lock)) {
+      call_next = false;
       return PipelineStatus::SUSPEND;
-
+    }
+    call_next = true;
     if (tp->alive) {
       // passes the filter
       return PipelineStatus::OK;
@@ -276,8 +281,7 @@ PipelineStatus Stage::next_relation_product() {
     }
 
     DataTuple *tp = &*rel_iter;
-    bool permitted = tp->lock.permits_read(tx.tid);
-    if (!permitted)
+    if (!tx.get_read_permit(tp->lock))
       return PipelineStatus::SUSPEND;
     rel_iter++;
     if (!tp->alive) {
@@ -308,8 +312,7 @@ PipelineStatus Stage::next_join_left() {
 
     while (group_iter != group->tuples.end()) {
       DataTuple *tp = group_iter->second;
-      bool permitted = tp->lock.permits_read(tx.tid);
-      if (!permitted)
+      if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
 
       group_iter++;
@@ -342,8 +345,7 @@ PipelineStatus Stage::next_join_right() {
 
     while (group_iter != group->tuples.end()) {
       DataTuple *tp = group_iter->second;
-      bool permitted = tp->lock.permits_read(tx.tid);
-      if (!permitted)
+      if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
 
       group_iter++;

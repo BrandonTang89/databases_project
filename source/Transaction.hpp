@@ -3,6 +3,7 @@
 #include "DeadlockDetector.hpp"
 #include "Relation.hpp"
 #include "Stage.hpp"
+#include "XSLock.hpp"
 #include "common.hpp"
 #include <array>
 #include <chrono>
@@ -68,6 +69,7 @@ class Transaction {
 
 public:
   bool acquire(Lock &lock, LockMode mode);
+  bool get_read_permit(XSLock &lock);
   Transaction(std::ostream &output_stream, const TID &transaction_id,
               size_t _age, std::unordered_map<RelName, Relation> &rels);
 
