@@ -111,6 +111,7 @@ bool Database::resume_transaction(const TID &tid, bool silent_resume) {
 
 void Database::on_control(const TID &tid, StatusCode status) {
   if (status == StatusCode::SUSPENDED) {
+    bool suspended_tx_aborted = false;
     while (true) {
       std::optional<TID> victim_opt = deadlock_detector.detect_cycle(tid);
       if (!victim_opt) {
@@ -128,8 +129,12 @@ void Database::on_control(const TID &tid, StatusCode status) {
         resume_transaction(tid, true);
         return; // let the nested on_control deal with it
       }
+      suspended_tx_aborted = true;
+      break;
     }
-    std::println(out, "Transaction {} was suspended.", tid);
+    if (!suspended_tx_aborted) {
+      std::println(out, "Transaction {} was suspended.", tid);
+    }
   } else {
     transactions.at(tid).clear_required_locks();
   }

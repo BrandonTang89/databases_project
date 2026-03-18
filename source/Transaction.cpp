@@ -142,8 +142,6 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
     return StatusCode::SUCCESS;
   }
   command_start_time = std::chrono::high_resolution_clock::now();
-  state = TransactionState::EXECUTING_QUERY;
-  num_answers = 0;
 
   // Check that all relations exist before starting execution
   // Also fill in var_idx to map each variable name with an index
@@ -163,6 +161,9 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
       }
     }
   }
+
+  state = TransactionState::EXECUTING_QUERY;
+  num_answers = 0;
 
   // Build the stages
   this->query_atoms = std::move(query); // the stages need the query atoms

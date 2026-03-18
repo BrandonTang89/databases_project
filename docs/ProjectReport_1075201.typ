@@ -161,38 +161,6 @@ The deadlock detector object provides the following function:
 `DeadlockDetector::detect_cycle(tid: TID) -> Optional<TID>` \
 Performs a depth-first search starting from the given transaction ID, traversing the waits-for graph by following locks that the transaction is waiting on and the transactions currently holding those locks. If we encounter a back edge, we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to roll back. This is described in more detail in @DetectCycle.
 
-
-
-// #algorithm-figure(
-//   "Database::OnControl",
-//   line-numbers: false,
-//   inset: -0.3em,
-//   {
-//     [
-//       #pseudocode-list[
-//         + *procedure* Database::OnControl(tid: TID, status: StatusCode)
-//           + *if* status = SUSPENDED *then*
-//             + *while* true *do*
-//               + victim $<-$ deadlock_detector.detect_cycle(tid)
-//               + *if* victim is empty *then* *break*
-//               + \# Deadlock detected: rollback a victim
-//               + rollback_transaction(victim)
-//               + *if* victim $!=$ tid *then*
-//                 + \# If we didn't abort ourselves, we can try to resume
-//                 + resume_transaction(tid)
-//                 + *return*
-//               + *end if*
-//             + *end while*
-//             + print "Transaction " + tid + " was suspended."
-//           + *else*
-//             + transactions[tid].clear_required_locks()
-//           + *end if*
-//         + *end procedure*
-//       ]
-//     ]
-//   },
-// )<OnControl>
-
 #algorithm-figure(
   "Deadlock Detection",
   line-numbers: false,
@@ -645,50 +613,50 @@ To roll back, we restore the original tuple values and release all held locks.
     table.hline(),
     table.header([], [Action], [Time (ms)], [\# of Answers]),
     table.hline(),
-    table.cell(rowspan: 2)[Step 1], [Import: ], [23308], [],
-    [Rollback: ], [5145], [],
+    table.cell(rowspan: 2)[Step 1], [Import: ], [25974], [],
+    [Rollback: ], [3171], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 2], [Import: ], [22480], [],
-    [Commit: ], [3363], [],
+    table.cell(rowspan: 2)[Step 2], [Import: ], [21079], [],
+    [Commit: ], [2200], [],
     table.hline(),
     table.cell(rowspan: 15)[Step 3],
     [Query 1: ], [0], [4],
-    [Query 2: ], [1735], [264],
+    [Query 2: ], [1681], [264],
     [Query 3: ], [0], [6],
-    [Query 4: ], [0], [34],
+    [Query 4: ], [1], [34],
     [Query 5: ], [0], [719],
-    [Query 6: ], [224], [1048532],
+    [Query 6: ], [209], [1048532],
     [Query 7: ], [0], [67],
-    [Query 8: ], [8], [7790],
-    [Query 9: ], [1150], [27247],
+    [Query 8: ], [9], [7790],
+    [Query 9: ], [1036], [27247],
     [Query 10: ], [0], [4],
-    [Query 11: ], [0], [224],
+    [Query 11: ], [1], [224],
     [Query 12: ], [0], [15],
     [Query 13: ], [0], [472],
-    [Query 14: ], [112], [795970],
-    [Commit: ], [42], [],
+    [Query 14: ], [148], [795970],
+    [Commit: ], [39], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 4], [Delete: ], [811], [],
-    [Rollback: ], [247], [],
+    table.cell(rowspan: 2)[Step 4], [Delete: ], [495], [],
+    [Rollback: ], [232], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 5], [Delete: ], [3509], [],
-    [Commit: ], [358], [],
+    table.cell(rowspan: 2)[Step 5], [Delete: ], [2228], [],
+    [Commit: ], [316], [],
     table.hline(),
     table.cell(rowspan: 15)[Step 6],
-    [Query 1: ], [1], [0],
-    [Query 2: ], [139], [0],
+    [Query 1: ], [0], [0],
+    [Query 2: ], [134], [0],
     [Query 3: ], [0], [0],
     [Query 4: ], [0], [0],
     [Query 5: ], [0], [0],
-    [Query 6: ], [198], [923871],
+    [Query 6: ], [215], [923871],
     [Query 7: ], [0], [0],
-    [Query 8: ], [13], [4040],
-    [Query 9: ], [846], [22522],
+    [Query 8: ], [6], [4040],
+    [Query 9: ], [428], [22522],
     [Query 10: ], [0], [0],
     [Query 11: ], [0], [186],
     [Query 12: ], [0], [9],
-    [Query 13: ], [2], [413],
-    [Query 14: ], [103], [701364],
+    [Query 13: ], [0], [413],
+    [Query 14: ], [104], [701364],
     [Commit: ], [25], [],
     table.hline(),
   )

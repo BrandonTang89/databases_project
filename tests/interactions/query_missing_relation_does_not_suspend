@@ -1,0 +1,9 @@
+> BEGIN T1
+Transaction T1 was created.
+> QUERY T1 Missing(X,Y)
+ERROR: relation Missing does not exist.
+> COMMIT T1
+Transaction T1 was committed.
+Command time:      <NUMBER> ms
+> QUIT
+Goodbye!
