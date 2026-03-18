@@ -31,6 +31,8 @@
             python3
             perf
             flamegraph
+            mermaid-cli
+            mupdf-headless
             (writeShellScriptBin "build" ''
               set -eu
 
