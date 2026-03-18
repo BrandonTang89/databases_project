@@ -33,10 +33,12 @@
 #counter(page).update(1)
 #set page(numbering: "1/1", number-align: right)
 
+In all the pseudocode, we avoid showing logging and error handling details for clarity, this can be referenced in the codebase.
+
 = 1
 == a
 === i
-We manage tuple-level locks using shared/exclusive locks (XSLocks in @LockHierarchyImg). These are standard two-phase locks: they operate in shared mode for queries and exclusive mode for edits (add/delete).
+We manage tuple-level locks using shared/exclusive locks (`XSLocks` in @LockHierarchyImg). These are standard two-phase locks: they operate in shared mode for queries and exclusive mode for edits (add/delete).
 
 #figure(caption: "Lock Hierarchy")[
   #image("img/lock_hierarchy.svg", width: 80%)
@@ -47,12 +49,12 @@ XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg). Th
   #image("img/data_tuple.svg", width: 23%)
 ] <DataTupleImg>
 
-Within each Lock, we maintain an explicit set of transactions holding the lock. This is later used by the deadlock detector to determine which transactions are waiting on which locks while traversing the implicit waits-for graph. We explicitly use inheritance and a VTable to implement the lock hierarchy, rather than a C++20 concept. This allows each transaction to hold sets of Lock pointers and treat them uniformly.
+Within each `Lock`, we maintain an explicit set of transactions holding the lock. This is later used by the deadlock detector to determine which transactions are waiting on which locks while traversing the implicit waits-for graph. We explicitly use inheritance and a VTable to implement the lock hierarchy, rather than a C++20 concept. This allows each transaction to hold sets of `Lock` pointers and treat them uniformly.
 
 
 
 === ii
-To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (SLocks in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$".
+To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (`SLocks` in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$".
 
 #figure(caption: "Relation and Group Classes")[
   #image("img/group_relation.svg", width: 100%)
@@ -63,7 +65,7 @@ We provide three levels of granularity for predicate locks:
 2. Group Locks: Cover subsets of a relation based on indices. These handle conditions of the form $R(c, x)$, $R(x, c)$, and $R(x, x)$ (diagonal).
 3. Tuple Locks: These act as the finest grain of locking, locking individual tuples.
 
-Relation locks belong directly to Relation objects (see @RelationGroupImg), while group locks are stored in groups belonging to relations (see @RelationGroupImg). The group locks are organized into three separate groups: one for the left attribute, one for the right attribute, and one for the diagonal (where left == right). This allows us to efficiently determine which locks to acquire based on the query predicates. We will later see in 1(c) how these granularities of locks neatly cover the types of queries we have to evaluate.
+Relation locks belong directly to `Relation` objects (see @RelationGroupImg), while group locks are stored in `Group`s belonging to relations (see @RelationGroupImg). The group locks are organized into three separate groups: one for the left attribute, one for the right attribute, and one for the diagonal (where left == right). We will later see in 1(c) how these granularities of locks neatly cover the types of queries we have to evaluate.
 
 The different operations interact with the locks as follows:
 
@@ -71,23 +73,23 @@ Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y
 
 There is an edge case for queries of the form $R(c_1, c_2)$, i.e. constant queries. For these queries, we do not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than only using `XSLock::permits_read`.
 
-Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
+Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly#footnote[Thus we do not use `XSLocks` for predicate locks.]. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
 
-Apart from the lock objects and their owners (Group, Relation and DataTuple), we also describe the Transaction objects (@TransactionImg) which hold onto pointers to locks.
+Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple`), we also describe the rest of the lock managment system, starting with `Transaction` objects (@TransactionImg) which hold onto pointers to locks.
 
 #figure(caption: "Transaction Class")[
   #image("img/transaction.svg", width: 75%)
 ] <TransactionImg>
 
-We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (std::unordered_set) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a std::flat_set to store the locks that a transaction is waiting on.
+We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (`std::unordered_set`) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a `std::flat_set` to store the locks that a transaction is waiting on.
 
-These transactions are stored in a single Database object (@DatabaseImg) that acts as the global transaction and lock manager. When transactions finish an operation, they are either suspended or ready to continue. The Database class is responsible for detecting deadlocks in the former case and progressing normal control flow in the latter case. This is implemented in `Database::OnControl`.
+These transactions are stored in a single `Database` object (@DatabaseImg) that acts as the global transaction and lock manager. When transactions finish an operation, they are either suspended or ready to continue. The `Database` class is responsible for detecting deadlocks in the former case and progressing normal control flow in the latter case. This is implemented in `Database::OnControl`.
 
 #figure(caption: "Database Class")[
   #image("img/database.svg", width: 75%)
 ] <DatabaseImg>
 
-We move some of the deadlock detection logic into a separate `DeadlockDetector` class (@DeadlockDetectorImg), composed into the Database class. This keeps the core transaction/locking management logic separate from deadlock detection.
+We move some of the deadlock detection logic into a separate `DeadlockDetector` class (@DeadlockDetectorImg), composed into the `Database` class. This keeps the core transaction/locking management logic separate from deadlock detection.
 
 #figure(caption: "Deadlock Detector Class")[
   #image("img/deadlock.svg", width: 75%)
@@ -226,30 +228,283 @@ Performs a depth-first search starting from the given transaction ID, traversing
 
 == b
 === i
-The tuples themselves are stored in the Relation class's tuple container. We use a StableVector implemented as a linked list of fixed-size blocks. This allows us to keep stable pointers to tuples that can be stored in the various indices. Using a normal `std::vector` would require updating all pointers in the indices every time the vector resized, while using a plain linked list would lead to worse cache performance and allocation overhead. Note that we only ever append tuples to the StableVector and never remove tuples from the middle; deletion is represented by setting the `alive` flag to false in the DataTuple.
+The tuples themselves are stored in the `Relation` class's tuple container. We use a `StableVector` implemented as a linked list of fixed-size blocks. This allows us to keep stable pointers to tuples that can be stored in the various indices. Using a normal `std::vector` would require updating all pointers in the indices every time the vector resized, while using a plain linked list would lead to worse cache performance and allocation overhead. Note that we only ever append tuples to the StableVector and never remove tuples from the middle; deletion is represented by setting the `alive` flag to false in the DataTuple.
 
-Based on the query patterns discussed in 1(c), we maintain three kinds of hash indices on each relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$, where we want to efficiently iterate over all tuples matching a constant on the left or right attribute, respectively. The third index is for queries of the form $R(X, X)$, where we want to efficiently iterate over all tuples whose left and right attributes are equal. Since each of these indices covers the same range as the predicate locks described above, we also place them in the Group class.
+Based on the query patterns discussed in 1(c), we maintain three kinds of hash indices on each relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$, where we want to efficiently iterate over all tuples matching a constant on the left or right attribute, respectively. The third index is for queries of the form $R(X, X)$, where we want to efficiently iterate over all tuples whose left and right attributes are equal. Since each of these indices covers the same range as the predicate locks described above, we also place them in the `Group` class.
 
-Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speedup: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the StableVector, which is more efficient than maintaining an additional index for this purpose.
+Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speedup: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the tuples `StableVector`, which is more efficient than maintaining an additional index for this purpose.
 
 === ii
-We first discuss the methods exposed by the Relation class:
+We first discuss the methods exposed by the `Relation` class:
 
 `Relation::get_tuple(left: uint32_t, right: uint32_t) -> DataTuple*` \
-retrieves a pointer to the DataTuple with the given left and right attributes. It creates the tuple if necessary, so it never returns null. Note that it does not guarantee that the tuple is alive, so the caller should check the alive flag if they only want alive tuples. This works by using `l_to_r_index` to find the group of tuples with the given left attribute, and then using `Group::find` to find the tuple with the given right attribute within that group. 
+retrieves a pointer to the `DataTuple` with the given left and right attributes. It creates the tuple if necessary, so it never returns `null`. Note that it does not guarantee that the tuple is alive, so the caller should check the `alive` flag if they only want alive tuples. This works by using `l_to_r_index` to find the group of tuples with the given left attribute, and then using `Group::find` to find the tuple with the given right attribute within that group.
 
 `Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
-is used to add or delete a tuple from the relation. It first finds the DataTuple via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any lock check or acquisition fails, it records the locks the transaction needs and returns false to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns true.
+is used to add or delete a tuple from the relation by setting its `alive` flag. It first finds the `DataTuple` via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any lock check or acquisition fails, it records the locks the transaction needs and returns `false` to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns `true`.
 
-Then we discuss the methods exposed by the Group class:
+Then we discuss the methods exposed by the `Group` class:
 
 `Group::insert(tp: *DataTuple): unit`
 inserts the given tuple pointer into the group index. It is used when adding a new tuple to the relation and updating the indices.
 
 `Group::find(left: uint32_t, right: uint32_t) -> DataTuple*`
-finds the tuple with the given left and right attributes in the group index. It returns null if no such tuple exists. It is used to efficiently locate tuples matching a given predicate when evaluating queries.
+finds the tuple with the given left and right attributes in the group index. It returns `null` if no such tuple exists. It is used to efficiently locate tuples matching a given predicate when evaluating queries.
 
 == c
+To best deal with suspensions, we choose to use a volcano style query evaluation algorithm which naturally handles suspensions in between calls of `next()`. This comes in 2 phases: setting up the query pipeline, and pulling tuples through the pipeline.
+
+The query pipeline for a query $Q = R_1 (l_1, r_1), ..., R_n (l_n, r_n)$ consists of $n+1$ `Stage`s. Stage $0$ is always an initial stage while stage $i$ for $i>0$ corresponds to the effect of the query atom $R_i (l_i, r_i)$.
+
+#figure(caption: "Stage Class")[
+  #image("img/stage.svg", width: 75%)
+] <StageImg>
+
+Each `Stage` (apart from the initial stage) is connected to a previous `Stage` via the `previous` pointer, when `next()` is called on a stage, it can pull tuples from the previous stage via `previous.next()` as many times as is needed to produce the next output tuple. While stages conceptually pass tuples to each other, in practise, no stage ever modifies the tuples it receives from the variables set in tuples by previous stages, thus they all directly share the same buffer to write to: `channel`.
+
+The building of the pipeline is initiated by `Transaction::StartQuery` when a query is first executed. This function handles constructing the stages and connecting them together. All the stage specific configuration is handled by the `Stage` constructor. This differentiates between the different types of stages by considering the structure of the query Atom with respect to the previously seen variables and also acquires the relevant predicate locks.
+
+#algorithm-figure(
+  "Transaction::StartQuery",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Transaction::StartQuery(query: Vec\<QueryAtom\>)
+          \ `         `  $->$ StatusCode
+          + state $<-$ EXECUTING_QUERY
+          + num_answers $<-$ 0
+          +
+          + \# Gather build variable to index mapping
+          + num_vars $<-$ 0
+          + var_idx.clear()
+          + *for each* atom *in* query *do*
+            + *for each* arg *in* {atom.left, atom.right} *do*
+              + *if* arg is Variable *then*
+                + *if* arg.name $in.not$ var_idx *then*
+                  + var_idx[arg.name] $<-$ num_vars
+                  + num_vars $<-$ num_vars + 1
+                + *end if*
+              + *end if*
+            + *end for*
+          + *end for*
+          +
+          + \# Build query pipeline stages
+          + this.query_atoms $<-$ query
+          + channel.resize(num_vars)
+          + stages.clear()
+          + *for* i $<-$ 0 *to* query_atoms.len() *do*
+            + stages.push(Stage(i, \*this))
+          + *end for*
+          +
+          + *return* resume_query()
+        + *end procedure*
+      ]
+    ]
+  },
+)<StartQuery>
+
+
+#algorithm-figure(
+  "Stage::Stage",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Stage::Stage(stage_idx: usize, tx: &Transaction)
+          + *if* stage_idx = 0 *then*
+            + type $<-$ INITIAL
+            + *return*
+          + *end if*
+          + atom $<-$ tx.query_atoms[stage_idx - 1]
+          + previous $<-$ tx.stages[stage_idx - 1]
+          + rel $<-$ tx.relations[atom.relation]
+          + num_input_vars $<-$ previous.num_output_vars
+          +
+          + *match* (atom.left, atom.right)
+            + (Constant(c1), Constant(c2)) $=>$
+              + type $<-$ CONST_CONST
+              + num_output_vars $<-$ num_input_vars
+            + (Constant(c), Variable(v)) $=>$
+              + var_idx $<-$ tx.var_idx[v.name]; const_val $<-$ c.value
+              + group $<-$ rel.l_to_r_index[const_val]; group_setup()
+            + (Variable(v), Constant(c)) $=>$
+              + var_idx $<-$ tx.var_idx[v.name]; const_val $<-$ c.value
+              + group $<-$ rel.r_to_l_index[const_val]; group_setup()
+            + (Variable(v1), Variable(v2)) $=>$
+              + idx1 $<-$ tx.var_idx[v1.name]; idx2 $<-$ tx.var_idx[v2.name]
+              + var_idx $<-$ idx1; var2_idx $<-$ idx2
+              + *if* idx1 = idx2 *then*
+                + group $<-$ rel.diagonal_index; group_setup()
+              + *else*
+                + *if* idx1 $>=$ num_input_vars *and* idx2 $>=$ num_input_vars *then*
+                  + type $<-$ RELATION_PRODUCT; num_output_vars $<-$ num_input_vars + 2
+                  + tx.acquire(rel.whole_rel_lock, SHARED)
+                + *else if* idx1 $>=$ num_input_vars *then*
+                  + type $<-$ JOIN_RIGHT; num_output_vars $<-$ num_input_vars + 1
+                + *else if* idx2 $>=$ num_input_vars *then*
+                  + type $<-$ JOIN_LEFT; num_output_vars $<-$ num_input_vars + 1
+                + *else*
+                  + type $<-$ RELATION_FILTER; num_output_vars $<-$ num_input_vars
+                  + tx.acquire(rel.whole_rel_lock, SHARED)
+                + *end if*
+              + *end if*
+            + *end match*
+        + *end procedure*
+
+        + *procedure* Stage::group_setup()
+          + tx.acquire(group.lock, SHARED)
+          + *if* var_idx $>=$ num_input_vars *then*
+            + type $<-$ GROUP_PRODUCT
+            + num_output_vars $<-$ num_input_vars + 1
+          + *else*
+            + type $<-$ GROUP_FILTER
+            + num_output_vars $<-$ num_input_vars
+          + *end if*
+        + *end procedure*
+      ]
+    ]
+  },
+)<StageConstructor>
+
+The second phase of the query algorithm involves repeatedly pulling tuples through the pipeline by calling `Stage::next()` from the last stage until it either returns `SUSPEND` or `FINISHED`. This is orchestrated by `Transaction::resume_query()`.
+
+
+#algorithm-figure(
+  "Transaction::ResumeQuery",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Transaction::ResumeQuery() $->$ StatusCode
+          + *while* true *do*
+            + *match* stages.last().next()
+              + OK $=>$
+                + num_answers $<-$ num_answers + 1
+                + print_tuple(query_channel)
+                + *continue*
+              + SUSPEND $=>$
+                + *return* StatusCode::SUSPENDED
+              + FINISHED $=>$
+                + state $<-$ READY
+                + print "Number of answers: ", num_answers
+                + *return* StatusCode::SUCCESS
+            + *end match*
+          + *end while*
+        + *end procedure*
+      ]
+    ]
+  },
+)<ResumeQuery>
+
+`Stage::next()` matches over the stage type and calls one of the specific next functions that implements the following logic to produce the set of tuples $W'$ from the input set of tuples $W$ received from the previous stage:
+- `next_const_const()`
+  - $W' = W "if" R(c_1, c_2) "and" emptyset "otherwise"$
+- `next_group_filter()`
+  - For $R(x, c)$: $W' = {t in W | (t.x, c) in R}$
+  - For $R(c, x)$: $W' = {t in W | (c, t.x) in R}$
+  - For $R(x, x)$: $W' = {t in W | (t.x, t.x) in R}$
+- `next_group_product()`
+  - For $R(x, c)$: $W' = { chevron.l t, x chevron.r | t in W, (x, c) in R}$
+  - For $R(c, x)$: $W' = { chevron.l t, x chevron.r | t in W, (c, x) in R}$
+  - For $R(x, x)$: $W' = { chevron.l t, x chevron.r | t in W, (x, x) in R}$
+- `next_relation_filter()`
+  - $W' = {t in W | (t.x_1, t.x_2) in R}$
+- `next_relation_product()`
+  - $W' = { chevron.l t, x_1, x_2 chevron.r | t in W, (x_1, x_2) in R}$
+- `next_join_left()`
+  - $W' = { chevron.l t, x_2 chevron.r | t in W, (t.x_1, x_2) in R}$
+- `next_join_right()`
+  - $W' = { chevron.l t, x_1 chevron.r | t in W, (x_1, t.x_2) in R}$
+
+These are implemented in volcano style in a mostly straightforward way:
+- `next_const_const` checks whether the constant tuple is in $R$ and forwards all or none of the tuples from the previous stage accordingly.
+- `next_group_filter` and `next_relation_filter` call `previous.next()` and check whether the relevant part of the incoming tuple passes the filter criteria. If so we forward the tuple, otherwise we discard it and call `previous.next()` again until they find a tuple that passes or the previous stage is finished.
+- `next_group_product` and `next_relation_product` maintain an iterator over the group or relation respectively to construct the cartesian product. With the same input tuple, they produce many output tuples until the iterator is exhausted, then they call `previous.next()` to get a new input tuple and reset the iterator.
+- `next_join_left` and `next_join_right` are similar to the `next_group_product` but instead of iterating over the same group all the time, the group they iterate over depends on the current input tuple from the previous stage, as they need to find tuples that match on one attribute with the input tuple.
+
+We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_product()`, and `Stage::next_join_left()` as examples of how the different stage types are implemented. The other stage types are implemented similarly based on the logic described above.
+
+#algorithm-figure(
+  "Query Evaluation Methods",
+  line-numbers: false,
+  inset: -0.3em,
+  {
+    [
+      #pseudocode-list[
+        + *procedure* Stage::NextJoinLeft() $->$ PipelineStatus
+          + *loop*
+            + *if* $not$ group_iter_valid *then*
+              + *match* previous.next()
+                + OK $=>$
+                  + group $<-$ rel.l_to_r_index[channel[var_idx]]
+                  + group_iter $<-$ group.tuples.begin()
+                  + tx.acquire(group.lock, SHARED) \# never fails
+                  + group_iter_valid $<-$ true
+                + other $=>$ *return* other
+              + *end match*
+            + *end if*
+            +
+            + *while* group_iter $!=$ group.tuples.end() *do*
+              + tp $<-$ group_iter.second
+              + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
+              + group_iter $<-$ group_iter + 1
+              + *if* tp.alive *then*
+                + channel[var2_idx] $<-$ tp.right
+                + *return* OK
+              + *end if*
+            + *end while*
+            + group_iter_valid $<-$ false
+          + *end loop*
+        + *end procedure*
+
+        + *procedure* Stage::NextGroupProduct() $->$ PipelineStatus
+          + *loop*
+            + *if* num_input_vars = 0 *then*
+              + \# expected to be in group.tuples.begin() when set up
+              + \# just 1 output tuple per group tuple
+              + *match* previous.next()
+                + OK $=>$
+                  + *if* group_iter = group.tuples.end() *then* *return* FINISHED
+                + other $=>$ *return* other
+              + *end match*
+            + *else if* group_iter = group.tuples.end() *then*
+              + \# expected to be in group.tuples.end() when set up
+              + *match* previous.next()
+                + OK $=>$ group_iter $<-$ group.tuples.begin()
+                + other $=>$ *return* other
+              + *end match*
+            + *end if*
+            +
+            + tp $<-$ group_iter.second
+            + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
+            + group_iter $<-$ group_iter + 1
+            + *if* tp.alive *then*
+              + *if* left_is_const *then* channel[var_idx] $<-$ tp.right
+              + *else* channel[var_idx] $<-$ tp.left
+              + *return* OK
+            + *end if*
+          + *end loop*
+        + *end procedure*
+
+        + *procedure* Stage::NextRelationFilter() $->$ PipelineStatus
+          + *loop*
+            + *match* previous.next()
+              + OK $=>$
+                + tp $<-$ rel.get_tuple(channel[var_idx], channel[var2_idx])
+                + *if* $not$ tp.lock.permits_read(tx.tid) *then* *return* SUSPEND
+                + *if* tp.alive *then* *return* OK
+              + other $=>$ *return* other
+            + *end match*
+          + *end loop*
+        + *end procedure*
+      ]
+    ]
+  },
+)<QueryMethods>
 
 == d & e
 We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, all relevant locks are recorded in the transaction's `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).

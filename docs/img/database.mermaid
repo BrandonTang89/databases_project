@@ -6,14 +6,14 @@ class Database {
     -relations: map~string, Relation~
     -transactions: map~TID, Transaction~
     -deadlock_detector: DeadlockDetector
-    -on_control(tid: &TID, status: StatusCode) unit
+    -on_control(tid: TID, status: StatusCode) unit
 
     +Database() Database
-    +begin_transaction(tid: &TID) bool
-    +resume_transaction(tid: &TID) bool
-    +commit_transaction(tid: &TID) bool
-    +rollback_transaction(tid: &TID) bool
-    +add_data(tid: &TID, rel_name: &RelName, csv_file: string) bool
-    +delete_data(tid: &TID, rel_name: &RelName, csv_file: string) bool
-    +query(tid: &TID, body: Vec~QueryAtom~) bool
+    +begin_transaction(tid: TID) bool
+    +resume_transaction(tid: TID) bool
+    +commit_transaction(tid: TID) bool
+    +rollback_transaction(tid: TID) bool
+    +add_data(tid: TID, rel_name: RelName, csv_file: string) bool
+    +delete_data(tid: TID, rel_name: RelName, csv_file: string) bool
+    +query(tid: TID, body: Vec~QueryAtom~) bool
 }
