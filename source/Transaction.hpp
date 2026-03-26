@@ -1,6 +1,7 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "DeadlockDetector.hpp"
+#include "OpenAddressingPointerSet.hpp"
 #include "Relation.hpp"
 #include "Stage.hpp"
 #include "XSLock.hpp"
@@ -11,7 +12,6 @@
 #include <iostream>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 inline constexpr std::array<std::string_view, 6> tx_state_names = {
@@ -28,7 +28,7 @@ class Transaction {
   size_t txBornAt{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
-  std::unordered_set<Lock *> held_locks; // for cleanup on finish
+  OpenAddressingPointerSet<Lock> held_locks; // for cleanup on finish
   std::flat_set<Lock *> required_locks;  // for deadlock detection
 
   // Command start time
