@@ -98,6 +98,8 @@ public:
     using value_type = Bucket;
     using difference_type = std::ptrdiff_t;
 
+    iterator() = default;
+
     iterator(OpenAddressingHashMap *map, size_t idx) : map_(map), idx_(idx) {
       if (map_) {
         skip_to_live();
@@ -111,6 +113,12 @@ public:
       ++idx_;
       skip_to_live();
       return *this;
+    }
+
+    iterator operator++(int) {
+      iterator tmp = *this;
+      ++(*this);
+      return tmp;
     }
 
     bool operator==(const iterator &other) const {

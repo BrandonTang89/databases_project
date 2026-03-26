@@ -13,8 +13,7 @@ concept Pointer64 = (sizeof(T *) == sizeof(uint64_t));
 
 template <Pointer64 T> class OpenAddressingPointerSetImpl {
   static constexpr T *EMPTY = nullptr;
-  static constexpr T *TOMBSTONE =
-      std::bit_cast<T *>(static_cast<uint64_t>(~uint64_t{0}));
+  static inline T *const TOMBSTONE = reinterpret_cast<T *>(~uintptr_t{0});
 
   std::vector<T *> buckets;
   size_t size_{0};
