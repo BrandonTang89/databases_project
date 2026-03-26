@@ -9,7 +9,6 @@
 
 template <typename V> class OpenAddressingHashMap {
   static constexpr uint64_t EMPTY_KEY = 0xFFFFFFFF00000000ULL;
-  static constexpr uint64_t TOMBSTONE_KEY = 0x00000000FFFFFFFFULL;
 
   struct Bucket {
     uint64_t first{EMPTY_KEY};
@@ -18,7 +17,6 @@ template <typename V> class OpenAddressingHashMap {
 
   std::vector<Bucket> buckets;
   size_t size_{0};
-  size_t tombstones_{0};
 
   static uint64_t splitmix64(uint64_t x) {
     x += 0x9E3779B97F4A7C15ULL;
@@ -46,14 +44,12 @@ template <typename V> class OpenAddressingHashMap {
       rehash(8);
       return;
     }
-    if (size_ + tombstones_ + 1 > buckets.size() / 2) {
+    if (size_ + 1 > buckets.size() / 2) {
       size_t grown_capacity =
           buckets.size() > std::numeric_limits<size_t>::max() / 2
               ? std::numeric_limits<size_t>::max()
               : buckets.size() * 2;
       rehash(grown_capacity);
-    } else if (tombstones_ > size_) {
-      rehash(buckets.size());
     }
   }
 
@@ -76,9 +72,8 @@ template <typename V> class OpenAddressingHashMap {
     std::vector<Bucket> old = std::move(buckets);
     buckets.assign(capacity, Bucket{});
     size_ = 0;
-    tombstones_ = 0;
     for (auto &bucket : old) {
-      if (bucket.first != EMPTY_KEY && bucket.first != TOMBSTONE_KEY) {
+      if (bucket.first != EMPTY_KEY) {
         insert_without_grow(bucket.first, std::move(bucket.second));
       }
     }
@@ -92,7 +87,7 @@ public:
     void skip_to_live() {
       while (idx_ < map_->buckets.size()) {
         uint64_t key = map_->buckets[idx_].first;
-        if (key != EMPTY_KEY && key != TOMBSTONE_KEY) {
+        if (key != EMPTY_KEY) {
           break;
         }
         ++idx_;
@@ -133,7 +128,6 @@ public:
       bucket.second = V{};
     }
     size_ = 0;
-    tombstones_ = 0;
   }
 
   void reserve(size_t n) {
@@ -164,41 +158,19 @@ public:
     maybe_rehash_for_insert();
 
     size_t idx = index_for(key);
-    size_t first_tombstone = buckets.size();
 
     while (true) {
       auto &bucket = buckets[idx];
       if (bucket.first == key) {
         return bucket.second;
       }
-      if (bucket.first == TOMBSTONE_KEY && first_tombstone == buckets.size()) {
-        first_tombstone = idx;
-      }
       if (bucket.first == EMPTY_KEY) {
-        size_t insert_idx =
-            first_tombstone != buckets.size() ? first_tombstone : idx;
-        auto &insert_bucket = buckets[insert_idx];
-        if (insert_bucket.first == TOMBSTONE_KEY) {
-          --tombstones_;
-        }
-        insert_bucket.first = key;
-        insert_bucket.second = V{};
+        bucket.first = key;
+        bucket.second = V{};
         ++size_;
-        return insert_bucket.second;
+        return bucket.second;
       }
       idx = (idx + 1) & (buckets.size() - 1);
     }
-  }
-
-  bool erase(uint64_t key) {
-    auto it = find(key);
-    if (it == end()) {
-      return false;
-    }
-    it->first = TOMBSTONE_KEY;
-    it->second = V{};
-    --size_;
-    ++tombstones_;
-    return true;
   }
 };
