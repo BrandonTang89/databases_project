@@ -1,7 +1,9 @@
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -26,11 +28,12 @@ template <typename V> class OpenAddressingHashMap {
   }
 
   static size_t next_pow2(size_t n) {
-    size_t result = 1;
-    while (result < n) {
-      result <<= 1;
+    constexpr size_t max_pow2 =
+        size_t{1} << (std::numeric_limits<size_t>::digits - 1);
+    if (n >= max_pow2) {
+      return max_pow2;
     }
-    return result;
+    return std::bit_ceil(n);
   }
 
   size_t index_for(uint64_t key) const {
@@ -43,8 +46,12 @@ template <typename V> class OpenAddressingHashMap {
       rehash(8);
       return;
     }
-    if ((size_ + tombstones_ + 1) * 2 > buckets.size()) {
-      rehash(buckets.size() * 2);
+    if (size_ + tombstones_ + 1 > buckets.size() / 2) {
+      size_t grown_capacity =
+          buckets.size() > std::numeric_limits<size_t>::max() / 2
+              ? std::numeric_limits<size_t>::max()
+              : buckets.size() * 2;
+      rehash(grown_capacity);
     } else if (tombstones_ > size_) {
       rehash(buckets.size());
     }

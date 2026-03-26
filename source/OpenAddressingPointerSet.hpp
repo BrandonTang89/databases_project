@@ -3,6 +3,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
@@ -27,11 +28,12 @@ template <Pointer64 T> class OpenAddressingPointerSetImpl {
   }
 
   static size_t next_pow2(size_t n) {
-    size_t result = 1;
-    while (result < n) {
-      result <<= 1;
+    constexpr size_t max_pow2 =
+        size_t{1} << (std::numeric_limits<size_t>::digits - 1);
+    if (n >= max_pow2) {
+      return max_pow2;
     }
-    return result;
+    return std::bit_ceil(n);
   }
 
   size_t index_for(T *value) const {
@@ -70,8 +72,12 @@ template <Pointer64 T> class OpenAddressingPointerSetImpl {
       rehash(8);
       return;
     }
-    if ((size_ + tombstones_ + 1) * 2 > buckets.size()) {
-      rehash(buckets.size() * 2);
+    if (size_ + tombstones_ + 1 > buckets.size() / 2) {
+      size_t grown_capacity =
+          buckets.size() > std::numeric_limits<size_t>::max() / 2
+              ? std::numeric_limits<size_t>::max()
+              : buckets.size() * 2;
+      rehash(grown_capacity);
     } else if (tombstones_ > size_) {
       rehash(buckets.size());
     }
