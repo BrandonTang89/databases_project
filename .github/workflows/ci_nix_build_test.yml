@@ -1,10 +1,13 @@
-name: C++ CI
+name: Nix Build and Test CI
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
