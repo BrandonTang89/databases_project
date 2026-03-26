@@ -1,14 +1,15 @@
 #pragma once
 
-#include <bit>
+#include "OpenAddressingHashUtils.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <utility>
 #include <vector>
 
-template <typename V> class OpenAddressingHashMap {
-  static constexpr uint64_t EMPTY_KEY = 0xFFFFFFFF00000000ULL;
+template <typename V> class IndexingHashMap {
+  // Reserved sentinel for empty buckets.
+  // Keys are group index keys derived from tuple values in this project.
+  static constexpr uint64_t EMPTY_KEY = 0xFFFFFFFFFFFFFFFFULL;
 
   struct Bucket {
     uint64_t first{EMPTY_KEY};
@@ -17,22 +18,6 @@ template <typename V> class OpenAddressingHashMap {
 
   std::vector<Bucket> buckets;
   size_t size_{0};
-
-  static uint64_t splitmix64(uint64_t x) {
-    x += 0x9E3779B97F4A7C15ULL;
-    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
-    x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
-    return x ^ (x >> 31);
-  }
-
-  static size_t next_pow2(size_t n) {
-    constexpr size_t max_pow2 =
-        size_t{1} << (std::numeric_limits<size_t>::digits - 1);
-    if (n >= max_pow2) {
-      return max_pow2;
-    }
-    return std::bit_ceil(n);
-  }
 
   size_t index_for(uint64_t key) const {
     return static_cast<size_t>(
@@ -81,7 +66,7 @@ template <typename V> class OpenAddressingHashMap {
 
 public:
   class iterator {
-    OpenAddressingHashMap *map_{nullptr};
+    IndexingHashMap *map_{nullptr};
     size_t idx_{0};
 
     void skip_to_live() {
@@ -100,7 +85,7 @@ public:
 
     iterator() = default;
 
-    iterator(OpenAddressingHashMap *map, size_t idx) : map_(map), idx_(idx) {
+    iterator(IndexingHashMap *map, size_t idx) : map_(map), idx_(idx) {
       if (map_) {
         skip_to_live();
       }
@@ -126,7 +111,7 @@ public:
     }
   };
 
-  OpenAddressingHashMap() { rehash(8); }
+  IndexingHashMap() { rehash(8); }
 
   size_t size() const { return size_; }
 

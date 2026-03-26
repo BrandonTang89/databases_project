@@ -1,39 +1,22 @@
 #pragma once
 
-#include <bit>
+#include "OpenAddressingHashUtils.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
 
 template <typename T>
-concept Pointer64 = (sizeof(T *) == sizeof(uint64_t));
+concept Has64BitPointer = (sizeof(T *) == sizeof(uint64_t));
 
-template <Pointer64 T> class OpenAddressingPointerSetImpl {
+template <Has64BitPointer T> class PointerHashSetImpl {
   static constexpr T *EMPTY = nullptr;
   static inline T *const TOMBSTONE = reinterpret_cast<T *>(~uintptr_t{0});
 
   std::vector<T *> buckets;
   size_t size_{0};
   size_t tombstones_{0};
-
-  static uint64_t splitmix64(uint64_t x) {
-    x += 0x9E3779B97F4A7C15ULL;
-    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
-    x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
-    return x ^ (x >> 31);
-  }
-
-  static size_t next_pow2(size_t n) {
-    constexpr size_t max_pow2 =
-        size_t{1} << (std::numeric_limits<size_t>::digits - 1);
-    if (n >= max_pow2) {
-      return max_pow2;
-    }
-    return std::bit_ceil(n);
-  }
 
   size_t index_for(T *value) const {
     uint64_t bits = std::bit_cast<uint64_t>(value);
@@ -84,7 +67,7 @@ template <Pointer64 T> class OpenAddressingPointerSetImpl {
 
 public:
   class iterator {
-    OpenAddressingPointerSetImpl *set_{nullptr};
+    PointerHashSetImpl *set_{nullptr};
     size_t idx_{0};
 
     void skip_to_live() {
@@ -101,7 +84,7 @@ public:
     using value_type = T *;
     using difference_type = std::ptrdiff_t;
 
-    iterator(OpenAddressingPointerSetImpl *set, size_t idx)
+    iterator(PointerHashSetImpl *set, size_t idx)
         : set_(set), idx_(idx) {
       if (set_) {
         skip_to_live();
@@ -121,7 +104,7 @@ public:
     }
   };
 
-  OpenAddressingPointerSetImpl() { rehash(8); }
+  PointerHashSetImpl() { rehash(8); }
 
   iterator begin() { return iterator(this, 0); }
   iterator end() { return iterator(this, buckets.size()); }
@@ -189,6 +172,6 @@ public:
 };
 
 template <typename T>
-using OpenAddressingPointerSet =
-    std::conditional_t<Pointer64<T>, OpenAddressingPointerSetImpl<T>,
+using PointerHashSet =
+    std::conditional_t<Has64BitPointer<T>, PointerHashSetImpl<T>,
                        std::unordered_set<T *>>;

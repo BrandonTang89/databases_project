@@ -28,7 +28,7 @@ class Transaction {
   size_t txBornAt{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
-  OpenAddressingPointerSet<Lock> held_locks; // for cleanup on finish
+  PointerHashSet<Lock> held_locks; // for cleanup on finish
   std::flat_set<Lock *> required_locks;  // for deadlock detection
 
   // Command start time
