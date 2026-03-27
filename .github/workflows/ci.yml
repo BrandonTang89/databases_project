@@ -1,4 +1,4 @@
-name: C++ CI
+name: Benchmark CI
 
 on:
   push:
@@ -7,21 +7,38 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
+  benchmark:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install GCC 15.2
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y g++-15
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 --slave /usr/bin/g++ g++ /usr/bin/g++-15
-        gcc --version
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v16
 
-    - name: Compile
+    - name: Build release (Nix)
       run: |
-        chmod +x compile_nocmake.sh
-        ./compile_nocmake.sh
+        nix develop --command build release
+
+    - name: Run benchmark parts 1-6
+      run: |
+        nix develop --command python3 benchmarks/bench.py \
+          benchmarks/benchmark_parts/bench_in/bench_1.in \
+          benchmarks/benchmark_parts/bench_in/bench_2.in \
+          benchmarks/benchmark_parts/bench_in/bench_3.in \
+          benchmarks/benchmark_parts/bench_in/bench_4.in \
+          benchmarks/benchmark_parts/bench_in/bench_5.in \
+          benchmarks/benchmark_parts/bench_in/bench_6.in
+
+    - name: Generate Typst benchmark table
+      run: |
+        mkdir -p benchmarks/benchmark_parts/bench_out
+        nix develop --command bash -lc \
+          "python3 benchmarks/produce_report_table.py | tee benchmarks/benchmark_parts/bench_out/benchmark_table.typ"
+
+    - name: Upload Typst table artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-table-typ
+        path: benchmarks/benchmark_parts/bench_out/benchmark_table.typ
+        if-no-files-found: error
