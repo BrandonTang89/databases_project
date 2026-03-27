@@ -1,0 +1,48 @@
+name: Benchmark CI
+
+on:
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Build release (Nix)
+      run: |
+        nix develop --command build release
+
+    - name: Run benchmark parts 1-6
+      run: |
+        nix develop --command python3 benchmarks/bench.py \
+          benchmarks/benchmark_parts/bench_in/bench_1.in \
+          benchmarks/benchmark_parts/bench_in/bench_2.in \
+          benchmarks/benchmark_parts/bench_in/bench_3.in \
+          benchmarks/benchmark_parts/bench_in/bench_4.in \
+          benchmarks/benchmark_parts/bench_in/bench_5.in \
+          benchmarks/benchmark_parts/bench_in/bench_6.in
+
+    - name: Generate Typst benchmark table
+      run: |
+        mkdir -p benchmarks/benchmark_parts/bench_out
+        nix develop --command bash -lc \
+          "python3 benchmarks/produce_report_table.py | tee benchmarks/benchmark_parts/bench_out/benchmark_table.typ"
+
+    - name: Upload Typst table artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-table-typ
+        path: benchmarks/benchmark_parts/bench_out/benchmark_table.typ
+        if-no-files-found: error
