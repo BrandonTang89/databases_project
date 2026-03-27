@@ -1,0 +1,33 @@
+> BEGIN T1
+Transaction T1 was created.
+> ADD T1 R H1.csv
+Relation R was created.
+Tuples added:      24
+Command time:      <NUMBER> ms
+> DELETE T1 R H2.csv
+Tuples deleted:    8
+Command time:      <NUMBER> ms
+> QUERY T1 R(X,Y)
+<start perm>
+9,109
+10,110
+11,111
+12,112
+13,113
+14,114
+15,115
+16,116
+17,117
+18,118
+19,119
+20,120
+21,121
+22,122
+23,123
+24,124
+<end perm>
+Number of answers: 16
+Command time:      <NUMBER> ms
+> COMMIT T1
+Transaction T1 was committed.
+Command time:      <NUMBER> ms
