@@ -666,11 +666,11 @@ In terms of scalability with respect to the number of open transactions, perform
 
 The main scalability bottleneck appears once contention rises. More open transactions means larger lock-holder sets and more required-lock edges, and each suspension triggers a DFS deadlock check over that waits-for graph (cost proportional to $V + E$). In addition, coarse predicates such as $R(x, y)$ take relation-level shared locks, which can block many edits at once. So the system scales well in low-conflict workloads, but degrades under high-conflict workloads because more time is spent suspended or in deadlock handling rather than doing useful work; this is the expected trade-off for serializable isolation.
 
-Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for two hot paths: `IndexingHashMap` for group indexing (`uint64 -> DataTuple*`) and `PointerHashSet` for tracking `held_locks`.
-
-`IndexingHashMap` stores entries in one contiguous bucket array and resolves collisions by probing the next slot, which reduces pointer chasing compared with separate chaining. This improves cache locality because probes tend to touch adjacent cache lines. `PointerHashSet` uses the same contiguous layout and adds a tombstone marker for erase-heavy lock lifecycle operations.
-
-These choices also respect pointer stability requirements in the storage layer. Group indices store `DataTuple*` and lock sets store `Lock*`; the pointed-to objects remain stable because tuples are kept in stable storage structures and locks are embedded in long-lived relation/tuple objects. Rehashing only moves bucket metadata (key/pointer entries), not the pointed-to objects themselves, so pointer identity remains valid while hash-table cache locality improves. This is consistent with the profiling data (see @FlameGraphImg), where hash table operations are a major cost center.
+// Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for two hot paths: `IndexingHashMap` for group indexing (`uint64 -> DataTuple*`) and `PointerHashSet` for tracking `held_locks`.
+//
+// `IndexingHashMap` stores entries in one contiguous bucket array and resolves collisions by probing the next slot, which reduces pointer chasing compared with separate chaining. This improves cache locality because probes tend to touch adjacent cache lines. `PointerHashSet` uses the same contiguous layout and adds a tombstone marker for erase-heavy lock lifecycle operations.
+//
+// These choices also respect pointer stability requirements in the storage layer. Group indices store `DataTuple*` and lock sets store `Lock*`; the pointed-to objects remain stable because tuples are kept in stable storage structures and locks are embedded in long-lived relation/tuple objects. Rehashing only moves bucket metadata (key/pointer entries), not the pointed-to objects themselves, so pointer identity remains valid while hash-table cache locality improves. This is consistent with the profiling data (see @FlameGraphImg), where hash table operations are a major cost center.
 #figure(
   caption: [
     Flame Graph for the benchmarking procedure \
