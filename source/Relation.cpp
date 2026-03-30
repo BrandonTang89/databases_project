@@ -43,9 +43,16 @@ bool Relation::edit_tuple(Transaction &tx, uint32_t left, uint32_t right,
   const TID &tid = tx.tid;
   Group &left_group = l_to_r_index[left];
   Group &right_group = r_to_l_index[right];
+  if (!check_group_locks(tid, left, right, left_group, right_group)) {
+    tx.required_locks.insert(&whole_rel_lock);
+    dep_group_locks(tx, left, right, left_group, right_group);
+    debug("Transaction {} is waiting to acquire lock for tuple ({}, {})", tid,
+          left, right);
+    return false;
+  }
+
   DataTuple *tp = ensure_tuple(left, right);
-  if (check_group_locks(tid, left, right, left_group, right_group) &&
-      tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
+  if (tx.acquire(tp->lock, LockMode::EXCLUSIVE)) {
     // Treat all the lock parts as "atomic"
     // this ensures proper deadlock detection!
 

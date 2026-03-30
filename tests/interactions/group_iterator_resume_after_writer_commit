@@ -1,0 +1,36 @@
+> BEGIN T0
+Transaction T0 was created.
+> ADD T0 R R1.csv
+Relation R was created.
+Tuples added:      3
+Command time:      <NUMBER> ms
+> COMMIT T0
+Transaction T0 was committed.
+Command time:      <NUMBER> ms
+
+> BEGIN T1
+Transaction T1 was created.
+> ADD T1 R R2.csv
+Tuples added:      1
+Command time:      <NUMBER> ms
+
+> BEGIN T2
+Transaction T2 was created.
+> QUERY T2 R(3, X)
+Transaction T2 was suspended.
+
+> COMMIT T1
+Transaction T1 was committed.
+Command time:      <NUMBER> ms
+
+> RESUME T2
+Resuming transaction T2.
+4
+Number of answers: 1
+Command time:      <NUMBER> ms
+
+> COMMIT T2
+Transaction T2 was committed.
+Command time:      <NUMBER> ms
+> QUIT
+Goodbye!
