@@ -11,7 +11,7 @@ Command time:      <NUMBER> ms
 > BEGIN T1
 Transaction T1 was created.
 > ADD T1 R R2.csv
-Tuples added:      1
+Tuples added:      0
 Command time:      <NUMBER> ms
 
 > BEGIN T2
