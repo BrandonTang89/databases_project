@@ -4,7 +4,6 @@
 #include "SLock.hpp"
 #include "StableVector.hpp"
 #include "Transaction.hpp"
-#include <unordered_map>
 
 bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
                                  Group &left_group, Group &right_group) {

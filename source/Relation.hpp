@@ -1,6 +1,7 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "Group.hpp"
+#include "OpenAddrHashMap.hpp"
 #include "SLock.hpp"
 #include "StableVector.hpp"
 #include "common.hpp"

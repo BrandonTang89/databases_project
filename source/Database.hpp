@@ -11,7 +11,7 @@
 class Database {
 private:
   std::ostream &out;
-  std::unordered_map<std::string, Relation> relations;
+  std::unordered_map<RelName, Relation> relations;
   std::unordered_map<TID, Transaction> transactions;
   DeadlockDetector deadlock_detector{transactions};
   

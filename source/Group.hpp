@@ -1,12 +1,12 @@
 #pragma once
 #include "DataTuple.hpp"
-#include "IndexingHashMap.hpp"
+#include "OpenAddrHashMap.hpp"
 #include "SLock.hpp"
 #include <cassert>
 
 struct Group {
   // DTI: all tuples are either (_, c) or (c, _) for some constant c
-  IndexingHashMap<DataTuple *>
+  OpenAddrHashMap<uint64_t, DataTuple *>
       tuples; // map from the non-constant value to the set of tuples with that
               // value, allows faster search for large groups
   SLock lock;

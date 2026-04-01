@@ -81,7 +81,7 @@ Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple
   #image("img/transaction.svg", width: 75%)
 ] <TransactionImg>
 
-We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set (`std::unordered_set`) to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a `std::flat_set` to store the locks that a transaction is waiting on.
+We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set#footnote[We write a custom open-addressing hash set for performance, see later discussion] to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a `std::flat_set` to store the locks that a transaction is waiting on.
 
 These transactions are stored in a single `Database` object (@DatabaseImg) that acts as the global transaction and lock manager. When transactions finish an operation, they are either suspended or ready to continue. The `Database` class is responsible for detecting deadlocks in the former case and progressing normal control flow in the latter case. This is implemented in `Database::on_control`.
 
@@ -496,7 +496,9 @@ An alternative stage design is to use inheritance and a separate class for each 
 A completely different approach would be an eager, set-at-a-time query evaluation algorithm. We chose not to use it because it would likely have worse memory performance (due to materialising large intermediate results) and is less natural to combine with suspension/resume semantics.
 
 == d & e
-We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, all relevant locks are recorded in the transaction's `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).
+We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, as many relevant locks as possible are put into `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).
+
+Furthermore, we take note to avoid creating any new Datatuple objects within the relation if the transaction is not permitted by predicate locks, ensuring that the containers that suspended transactions might hold iterators to do not get modified.
 
 We also store the original tuple values to allow rollbacks.
 
@@ -508,8 +510,12 @@ We also store the original tuple values to allow rollbacks.
     [
       #pseudocode-list[
         + *procedure* Relation::edit_tuple(tx: &Transaction, left: uint32_t, right: uint32_t,\  `         ` new_alive: bool) $->$ boolean
+          + *if* $not$ permitted_by_pred_locks(tx.tid, left, right) *then*
+           + insert_required_locks_for_edit(tx, left, right)
+           + *return* false
+          + *end if*
           + tp $<-$ get_tuple(left, right) \# creates the tuple if it doesn't exist
-          + *if* permitted_by_locks(tx.tid, left, right) *and* tx.acquire(tp->lock, EXCLUSIVE) *then*
+          + *if* tx.acquire(tp->lock, EXCLUSIVE) *then*
             + *if* tp->alive $!=$ new_alive *then*
               + tx.store_original(tp)
               + tx.num_modified++
@@ -529,7 +535,7 @@ We also store the original tuple values to allow rollbacks.
           + *return* true
         + *end procedure*
         + *procedure* Relation::insert_required_locks_for_edit(tx: &Transaction, left: uint32_t, right: uint32_t) $->$ unit
-          + \# tp.lock already inserted via tx.acquire()
+          + \# tp.lock already inserted via tx.acquire() if tp has been created
           + tx.required_locks.insert(&whole_rel_lock)
           + *if* left = right *then*
             + tx.required_locks.insert(&diagonal_index.lock)
@@ -608,51 +614,51 @@ On rollback, we restore original tuple values and release all held locks.
     table.hline(),
     table.header([], [Action], [Time (ms)], [\# of Answers]),
     table.hline(),
-    table.cell(rowspan: 2)[Step 1], [Import: ], [25974], [],
-    [Rollback: ], [3171], [],
+    table.cell(rowspan: 2)[Step 1], [Import: ], [13610], [],
+    [Rollback: ], [3100], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 2], [Import: ], [21079], [],
-    [Commit: ], [2200], [],
+    table.cell(rowspan: 2)[Step 2], [Import: ], [8269], [],
+    [Commit: ], [3060], [],
     table.hline(),
     table.cell(rowspan: 15)[Step 3],
     [Query 1: ], [0], [4],
-    [Query 2: ], [1681], [264],
+    [Query 2: ], [557], [264],
     [Query 3: ], [0], [6],
-    [Query 4: ], [1], [34],
+    [Query 4: ], [0], [34],
     [Query 5: ], [0], [719],
-    [Query 6: ], [209], [1048532],
+    [Query 6: ], [174], [1048532],
     [Query 7: ], [0], [67],
-    [Query 8: ], [9], [7790],
-    [Query 9: ], [1036], [27247],
+    [Query 8: ], [6], [7790],
+    [Query 9: ], [651], [27247],
     [Query 10: ], [0], [4],
-    [Query 11: ], [1], [224],
+    [Query 11: ], [0], [224],
     [Query 12: ], [0], [15],
     [Query 13: ], [0], [472],
-    [Query 14: ], [148], [795970],
-    [Commit: ], [39], [],
+    [Query 14: ], [129], [795970],
+    [Commit: ], [15], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 4], [Delete: ], [495], [],
-    [Rollback: ], [232], [],
+    table.cell(rowspan: 2)[Step 4], [Delete: ], [422], [],
+    [Rollback: ], [136], [],
     table.hline(),
-    table.cell(rowspan: 2)[Step 5], [Delete: ], [2228], [],
-    [Commit: ], [316], [],
+    table.cell(rowspan: 2)[Step 5], [Delete: ], [489], [],
+    [Commit: ], [188], [],
     table.hline(),
     table.cell(rowspan: 15)[Step 6],
     [Query 1: ], [0], [0],
-    [Query 2: ], [134], [0],
+    [Query 2: ], [0], [0],
     [Query 3: ], [0], [0],
     [Query 4: ], [0], [0],
     [Query 5: ], [0], [0],
-    [Query 6: ], [215], [923871],
+    [Query 6: ], [167], [923871],
     [Query 7: ], [0], [0],
-    [Query 8: ], [6], [4040],
-    [Query 9: ], [428], [22522],
+    [Query 8: ], [2], [4040],
+    [Query 9: ], [337], [22522],
     [Query 10: ], [0], [0],
     [Query 11: ], [0], [186],
     [Query 12: ], [0], [9],
     [Query 13: ], [0], [413],
-    [Query 14: ], [104], [701364],
-    [Commit: ], [25], [],
+    [Query 14: ], [119], [701364],
+    [Commit: ], [14], [],
     table.hline(),
   )
 ]
@@ -666,15 +672,12 @@ In terms of scalability with respect to the number of open transactions, perform
 
 The main scalability bottleneck appears once contention rises. More open transactions means larger lock-holder sets and more required-lock edges, and each suspension triggers a DFS deadlock check over that waits-for graph (cost proportional to $V + E$). In addition, coarse predicates such as $R(x, y)$ take relation-level shared locks, which can block many edits at once. So the system scales well in low-conflict workloads, but degrades under high-conflict workloads because more time is spent suspended or in deadlock handling rather than doing useful work; this is the expected trade-off for serializable isolation.
 
-// Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for two hot paths: `IndexingHashMap` for group indexing (`uint64 -> DataTuple*`) and `PointerHashSet` for tracking `held_locks`.
-//
-// `IndexingHashMap` stores entries in one contiguous bucket array and resolves collisions by probing the next slot, which reduces pointer chasing compared with separate chaining. This improves cache locality because probes tend to touch adjacent cache lines. `PointerHashSet` uses the same contiguous layout and adds a tombstone marker for erase-heavy lock lifecycle operations.
-//
-// These choices also respect pointer stability requirements in the storage layer. Group indices store `DataTuple*` and lock sets store `Lock*`; the pointed-to objects remain stable because tuples are kept in stable storage structures and locks are embedded in long-lived relation/tuple objects. Rehashing only moves bucket metadata (key/pointer entries), not the pointed-to objects themselves, so pointer identity remains valid while hash-table cache locality improves. This is consistent with the profiling data (see @FlameGraphImg), where hash table operations are a major cost center.
+Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for the group indices, held locks, and log of original tuple values#footnote[We don't replace the standard library hash table that maps left/right values to their groups since our implementations use buckets of keys and values. Large values like groups are bad for cache locality.]. While these are better than the separate chaining hash tables provided by the C++ standard library, they are not as optimised as those from third-party libraries like Abseil. The flame graph below shows that a large amount of time is spent in hash table operations, so using more optimised hash tables would likely lead to significant performance improvements.
+
 #figure(
   caption: [
     Flame Graph for the benchmarking procedure \
-  Shows that a large amount of time is spent in hash table operations.],
+    Shows that a significant amount of time is still is spent in hash table operations.],
 )[
   #image("img/flame_graph_cropped.png")
 ] <FlameGraphImg>

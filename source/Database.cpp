@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <print>
 #include <string>
-#include <unordered_map>
 
 bool Database::begin_transaction(const TID &tid) {
   if (transactions.find(tid) != transactions.end()) {

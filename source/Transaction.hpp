@@ -1,7 +1,8 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "DeadlockDetector.hpp"
-#include "OpenAddressingPointerSet.hpp"
+#include "OpenAddrHashMap.hpp"
+#include "OpenAddrHashSet.hpp"
 #include "Relation.hpp"
 #include "Stage.hpp"
 #include "XSLock.hpp"
@@ -28,14 +29,14 @@ class Transaction {
   size_t txBornAt{0};
   std::unordered_map<RelName, Relation> &relations;
   TransactionState state{TransactionState::READY};
-  PointerHashSet<Lock> held_locks; // for cleanup on finish
+  OpenAddrHashSet<Lock *> held_locks; // for cleanup on finish
   std::flat_set<Lock *> required_locks;  // for deadlock detection
 
   // Command start time
   std::chrono::high_resolution_clock::time_point command_start_time;
 
   // State to Rollback
-  std::unordered_map<DataTuple *, bool> original_alive;
+  OpenAddrHashMap<DataTuple *, bool> original_alive;
 
   // Suspended State for add/delete operations
   Relation *target_relation{nullptr};
