@@ -1,14 +1,11 @@
 #pragma once
 #include "DataTuple.hpp"
-#include "OpenAddressingHashMap.hpp"
+#include "IndexingHashMap.hpp"
 #include "SLock.hpp"
 #include <cassert>
 
 struct Group {
   // DTI: all tuples are either (_, c) or (c, _) for some constant c
-  // StableVector<DataTuple *, 8> tuples;
-  // std::unordered_set<DataTuple *> tuples; // faster to search than a
-  // StableVector for small groups, and we don't need order
   IndexingHashMap<DataTuple *>
       tuples; // map from the non-constant value to the set of tuples with that
               // value, allows faster search for large groups

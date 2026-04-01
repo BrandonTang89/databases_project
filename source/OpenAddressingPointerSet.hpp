@@ -1,6 +1,6 @@
 #pragma once
 
-#include "OpenAddressingHashUtils.hpp"
+#include "hashtable_utils.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>

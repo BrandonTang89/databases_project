@@ -1,12 +1,13 @@
 #pragma once
 
-#include "OpenAddressingHashUtils.hpp"
+#include "hashtable_utils.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
 template <typename V> class IndexingHashMap {
+  // Maps from uint64_t to V, implemented as an open-addressing hash map with linear probing.
   // Reserved sentinel for empty buckets.
   // Keys are group index keys derived from tuple values in this project.
   static constexpr uint64_t EMPTY_KEY = 0xFFFFFFFFFFFFFFFFULL;
