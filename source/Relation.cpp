@@ -2,11 +2,12 @@
 #include "DataTuple.hpp"
 #include "Group.hpp"
 #include "SLock.hpp"
-#include "StableVector.hpp"
 #include "Transaction.hpp"
 
 bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
                                  Group &left_group, Group &right_group) {
+  // Relation locks checked once for each edit batch for efficiency, so we don't
+  // check it here
   if (left == right) {
     if (!diagonal_index.lock.permits_edit(tid)) {
       debug("Transaction {} is waiting for diagonal_lock", tid);

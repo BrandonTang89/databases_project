@@ -1,7 +1,6 @@
 #pragma once
 #include "DataTuple.hpp"
 #include "Group.hpp"
-#include "OpenAddrHashMap.hpp"
 #include "SLock.hpp"
 #include "StableVector.hpp"
 #include "common.hpp"
@@ -10,7 +9,7 @@
 class Relation {
 
 public:
-  StableVector<DataTuple, 2048> tuples;
+  using TupleContainer = StableVector<DataTuple, 2048>;
   std::unordered_map<uint32_t, Group> l_to_r_index;
   std::unordered_map<uint32_t, Group> r_to_l_index;
   Group diagonal_index; // index for tuples where left == right
@@ -23,13 +22,18 @@ public:
    * Doesn't check whole relation lock for efficiency, caller should check
    * before calling this method
    */
-  bool edit_tuple(Transaction &tx, uint32_t left, uint32_t right, bool newAlive);
+  bool edit_tuple(Transaction &tx, uint32_t left, uint32_t right,
+                  bool newAlive);
 
   /** Ensures the tuple is created and thus always not null
    */
   DataTuple *get_tuple(uint32_t left, uint32_t right);
 
+  TupleContainer::iterator begin() { return tuples.begin(); }
+  TupleContainer::iterator end() { return tuples.end(); }
+
 private:
+  TupleContainer tuples;
   /**
    * Ensures that a tuple with the given left and right values exists in the
    * relation.

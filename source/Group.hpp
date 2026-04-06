@@ -4,16 +4,16 @@
 #include "SLock.hpp"
 #include <cassert>
 
-struct Group {
-  // DTI: all tuples are either (_, c) or (c, _) for some constant c
-  OpenAddrHashMap<uint64_t, DataTuple *>
-      tuples; // map from the non-constant value to the set of tuples with that
-              // value, allows faster search for large groups
+class Group {
+public:
+  // DTI: all tuples are either (_, c), (c, _) for some constant c or (x, x) for
+  // some variable x
+  using TupleContainer = OpenAddrHashMap<uint64_t, DataTuple *>;
+  // map from the non-constant value to the set of tuples with that
+  // value, allows faster search for large groups
   SLock lock;
-
-  inline uint64_t make_key(uint32_t left, uint32_t right) const {
-    return (static_cast<uint64_t>(left) << 32) | right;
-  }
+  TupleContainer::iterator begin() { return tuples.begin(); }
+  TupleContainer::iterator end() { return tuples.end(); }
 
   // Finds a tuple with the given left and right values, or returns nullptr if
   // no such tuple exists.
@@ -31,5 +31,11 @@ struct Group {
     assert(!find(tp->left, tp->right));
     tuples[make_key(tp->left, tp->right)] = tp;
     return true;
+  }
+
+private:
+  TupleContainer tuples;
+  inline uint64_t make_key(uint32_t left, uint32_t right) const {
+    return (static_cast<uint64_t>(left) << 32) | right;
   }
 };

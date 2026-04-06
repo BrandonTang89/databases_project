@@ -44,14 +44,12 @@ We manage tuple-level locks using shared/exclusive locks (`XSLocks` in @LockHier
   #image("img/lock_hierarchy.svg", width: 80%)
 ] <LockHierarchyImg>
 
-XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg). The lock maintains an explicit set of `lock_holders` (`std::flat_set`) to support the deadlock detector's traversal of the waits-for graph. We use a flat set because the number of concurrent holders for a single tuple is typically very small, which improves cache locality.
+XSLocks are directly incorporated into the `DataTuple` class (@DataTupleImg). The lock maintains an explicit set of `lock_holders` (`std::flat_set`) to support the deadlock detector's traversal of the waits-for graph. We use a flat set because the number of concurrent holders for a single tuple is typically very small, and a flat set improves cache locality for small sets.
 #figure(caption: "DataTuple Class")[
   #image("img/data_tuple.svg", width: 23%)
 ] <DataTupleImg>
 
-Within each `Lock`, we maintain an explicit set of transactions holding the lock. The deadlock detector uses this to determine which transactions are waiting on which locks while traversing the implicit waits-for graph. We use inheritance and a vtable to implement the lock hierarchy, rather than a C++20 concept. This allows each transaction to hold sets of `Lock` pointers and treat them uniformly.
-
-
+We use inheritance and a vtable to implement the lock hierarchy, rather than a C++20 concept. This allows each transaction to hold sets of `Lock` pointers and treat them uniformly.
 
 === ii
 To support serializable isolation and prevent phantoms, we implement predicate locks using shared locks (`SLocks` in @LockHierarchyImg). These locks represent conditions of the form "all tuples matching predicate $P$".
@@ -60,20 +58,45 @@ To support serializable isolation and prevent phantoms, we implement predicate l
   #image("img/group_relation.svg", width: 100%)
 ] <RelationGroupImg>
 
-We provide three levels of granularity for predicate locks:
+We provide two levels of granularity for predicate locks:
 1. Relation Lock: Covers all tuples in a relation $R(x, y)$.
 2. Group Locks: Cover subsets of a relation based on indices. These handle conditions of the form $R(c, x)$, $R(x, c)$, and $R(x, x)$ (diagonal).
-3. Tuple Locks: These act as the finest grain of locking, locking individual tuples.
 
-Relation locks belong directly to `Relation` objects (see @RelationGroupImg), while group locks are stored in `Group`s belonging to relations (see @RelationGroupImg). The group locks are organized into three separate groups: one for the left attribute, one for the right attribute, and one for the diagonal (where left == right). We will later see in 1(c) how these granularities of locks neatly cover the types of queries we have to evaluate.
+Relation locks belong directly to `Relation` objects, while group locks are stored in `Group`s belonging to relations (see @RelationGroupImg). The group locks are organised into three separate groups: one for the left attribute, one for the right attribute, and one for the diagonal (where left == right). We will later see in 1(c) how these granularities of locks neatly cover the types of queries we have to evaluate.
 
 The different operations interact with the locks as follows:
 
-Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ requires reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that matches this predicate, it is blocked until the query transaction commits or rolls back. While reading existing tuples, we also need to prevent dirty reads from transactions that have not yet committed (or have aborted). Thus, queries call `Transaction::get_read_permit`, which checks `XSLock::permits_read` and records the tuple lock in `required_locks` when permission is denied.
+Queries read ranges of tuples matching a predicate. For example, a query $R(1, Y)$ requires reading all tuples where the left attribute is 1 in relation $R$. To prevent phantoms, we acquire a shared lock on the relevant group lock (e.g., the group lock for left attribute 1). This ensures that if another transaction tries to insert a tuple that matches this predicate, it is blocked until the query transaction commits or rolls back.
 
-There is an edge case for queries of the form $R(c_1, c_2)$, i.e. constant queries. For these queries, we do not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$, and thus must acquire the tuple-level lock rather than only using `XSLock::permits_read`.
+While reading existing tuples, we also need to prevent dirty reads from transactions that have not yet committed (or have aborted). Thus, queries call `Transaction::get_read_permit`, which checks `XSLock::permits_read` and records the tuple lock in `required_locks` when permission is denied.
 
-Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly #footnote[Thus we do not use `XSLocks` for predicate locks.]. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
+There is an edge case for queries of the form $R(c_1, c_2)$, i.e. constant queries. For these queries, we do not take any predicate lock covering the $(c_1, c_2)$ tuple in $R$ since there is no risk of phantoms. On the other hand, we still need to prevent modifications to the tuple and thus must acquire the tuple-level lock in shared mode rather than only using `XSLock::permits_read`.
+
+Edit operations modify tuples from an explicit list. As they do not use implicit ranges, they do not need to acquire predicate locks directly#footnote[This is why we use `SLocks` rather than `XSLocks` for predicate locks.]. However, they still need to avoid causing phantoms, so for every tuple they edit, they must ensure that no other transaction has a shared lock on the relevant group lock covering that tuple's predicate. This is achieved using the `SLock::permits_edit` method, which checks whether the lock could be acquired in exclusive mode by this transaction. When editing a tuple, a transaction also acquires an exclusive lock on the tuple itself, as in standard two-phase locking.
+
+All these interactions are summarised in @LockSummaryTable.
+
+#figure(
+  caption: "Summary of Locks and their Interactions with Operations",
+)[
+  #set table(
+    stroke: (x, y) => {
+      if y == 0 { (bottom: 0.7pt + black) }
+      if x < 2 { (right: 0.7pt + black) }
+    },
+  )
+  #table(
+    columns: (auto, auto, auto),
+    align: left + top,
+    table.header([], [*Predicate Locks*], [*Tuple Locks*]),
+
+    [*Type*], [SLock], [XSLock],
+    [*Granularity*], [Relation/Group], [Single tuple],
+    [*Interaction with Edits*], [Checked for edit permissions], [Acquired in exclusive mode],
+    [*Interaction with\ non-constant queries*], [Acquired in shared mode], [Checked for read permissions],
+    [*Interaction with\ constant queries*], [Not applicable], [Acquired in shared mode],
+  )
+] <LockSummaryTable>
 
 Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple`), we also describe the rest of the lock management system, starting with `Transaction` objects (@TransactionImg) which hold onto pointers to locks.
 
@@ -81,7 +104,7 @@ Apart from the lock objects and their owners (`Group`, `Relation` and `DataTuple
   #image("img/transaction.svg", width: 75%)
 ] <TransactionImg>
 
-We track the locks held by each transaction in order to release the locks when the transaction commits or rolls back, and also track the locks that a transaction is relying on to make progress in order to detect deadlocks. A transaction likely holds many locks, so we use a hash set#footnote[We write a custom open-addressing hash set for performance, see later discussion] to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a `std::flat_set` to store the locks that a transaction is waiting on.
+We track both the locks held by each transaction (to release them on commit/rollback) and the locks a transaction is waiting on (for deadlock detection). A transaction likely holds many locks, so we use a hash set#footnote[We write a custom open-addressing hash set for performance, see later discussion] to store the locks held by each transaction. On the other hand, we expect the number of locks that a transaction is waiting on to be small, so we use a `std::flat_set` to store the locks that a transaction is waiting on.
 
 These transactions are stored in a single `Database` object (@DatabaseImg) that acts as the global transaction and lock manager. When transactions finish an operation, they are either suspended or ready to continue. The `Database` class is responsible for detecting deadlocks in the former case and progressing normal control flow in the latter case. This is implemented in `Database::on_control`.
 
@@ -154,9 +177,10 @@ A wrapper around `Lock::acquire` used by the execution engine. If `Lock::acquire
 `Transaction::get_read_permit(lock: XSLock) -> boolean` \
 Checks whether the transaction is allowed to read a tuple lock (`lock.permits_read(tid)`). If not, the lock pointer is inserted into `required_locks` before returning `false`, so suspended query stages expose the correct waits-for dependencies.
 
+`Transaction::release_all_locks() -> unit` \
+Releases all locks held by the transaction and clears the `held_locks` set. This is called when a transaction commits or rolls back.
 
 The deadlock detector object provides the following function:
-
 
 `DeadlockDetector::detect_cycle(tid: TID) -> Optional<TID>` \
 Performs a depth-first search starting from the given transaction ID, traversing the waits-for graph by following locks that the transaction is waiting on and the transactions currently holding those locks. If we encounter a back edge, we have found a cycle. We then locate the youngest transaction in the cycle and return it as the victim to roll back. This is described in more detail in @DetectCycle.
@@ -205,14 +229,15 @@ Performs a depth-first search starting from the given transaction ID, traversing
   },
 )<DetectCycle>
 
+When a lock conflict is encountered (i.e. a transaction tries to acquire a lock but is denied, or a permission check fails), the transaction is suspended and the relevant lock is added to the transaction's `required_locks` set. Control is then given back to the `Database` object, which calls `Database::on_control()` to initiate deadlock detection via @DetectCycle. If a victim is found, that transaction is rolled back to break the cycle, and the suspended transaction is resumed (provided it was not itself the victim). Note that this allows multiple transactions to be rolled back, since the resumed transaction can suspend again and trigger another round of deadlock detection.
 
 == b
 === i
-The tuples themselves are stored in the `Relation` class's tuple container. We use a `StableVector` implemented as a linked list of fixed-size blocks. This allows us to keep stable pointers to tuples that can be stored in the various indices. Using a normal `std::vector` would require updating all pointers in the indices every time the vector resized, while using a plain linked list would lead to worse cache performance and allocation overhead. Note that we only ever append tuples to the StableVector and never remove tuples from the middle; deletion is represented by setting the `alive` flag to false in the DataTuple.
+The tuples themselves are stored in the `Relation` class's tuple container. We use a `StableVector` implemented as a linked list of fixed-size blocks. This allows us to keep stable pointers to tuples that can be stored in the various indices. Using a normal `std::vector` would require updating all pointers in the indices every time the vector resized, while using a plain linked list would lead to worse cache performance and allocation overhead.#footnote[In C++26, we could instead use a `std::hive`, but this is out of scope for this project.] Note that we only ever append tuples to the StableVector and never remove tuples from the middle; deletion is represented by setting the `alive` flag to false in the DataTuple.
 
 Based on the query patterns discussed in 1(c), we maintain three kinds of hash indices on each relation. The first two are for queries of the form $R(c, Y)$ and $R(X, c)$, where we want to efficiently iterate over all tuples matching a constant on the left or right attribute, respectively. The third index is for queries of the form $R(X, X)$, where we want to efficiently iterate over all tuples whose left and right attributes are equal. Since each of these indices covers the same range as the predicate locks described above, we also place them in the `Group` class.
 
-Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speed-up: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the tuples `StableVector`, which is more efficient than maintaining an additional index for this purpose.
+Note that we do not maintain a whole-relation index. We chose not to do this because it would increase tuple insertion overhead without providing a significant speed-up: we can already use the left/right indices to efficiently check whether a tuple exists. To iterate over all tuples in a relation, we directly scan the `StableVector` of tuples, which is more efficient than maintaining an additional index for this purpose.
 
 === ii
 We first discuss the methods exposed by the `Relation` class:
@@ -223,6 +248,10 @@ retrieves a pointer to the `DataTuple` with the given left and right attributes.
 `Relation::edit_tuple(left: uint32_t, right: uint32_t) -> boolean` \
 is used to add or delete a tuple from the relation by setting its `alive` flag. It first finds the `DataTuple` via `Relation::get_tuple`, then checks the relevant locks to prevent phantoms and tries to acquire an exclusive lock on the tuple. If any lock check or acquisition fails, it records the locks the transaction needs and returns `false` to signal that the transaction should be suspended. Otherwise, it updates the tuple's alive status and returns `true`.
 
+`Relation::begin() -> Relation::TupleContainer::iterator` \
+`Relation::end() -> Relation::TupleContainer::iterator` \
+return iterators that allow for iterating over all tuples in the relation. This is used for queries that need to scan the entire relation, such as $R(X, Y)$ with no constants.
+
 Then we discuss the methods exposed by the `Group` class:
 
 `Group::insert(tp: *DataTuple): unit`
@@ -231,8 +260,16 @@ inserts the given tuple pointer into the group index. It is used when adding a n
 `Group::find(left: uint32_t, right: uint32_t) -> DataTuple*`
 finds the tuple with the given left and right attributes in the group index. It returns `null` if no such tuple exists. It is used to efficiently locate tuples matching a given predicate when evaluating queries.
 
+`Group::begin() -> Group::TupleContainer::iterator` \
+`Group::end() -> Group::TupleContainer::iterator` \
+return iterators that allow for iterating over all tuples in the group. This is used for queries that need to scan all tuples matching a certain predicate, such as $R(1, Y)$ or $R(X, 1)$.
+
 == c
-To handle suspensions cleanly, we use a volcano-style query evaluation algorithm, which naturally supports suspension between calls to `next()`. This has two phases: setting up the query pipeline, and pulling tuples through the pipeline.
+Handling queries begins with parsing the input query into a vector of `QueryAtom`s, where each `QueryAtom` represents an atom in the query with its relation name and left/right arguments (which can be constants or variables). This is done in `Transaction::StartQuery`.
+
+To handle suspensions cleanly, we use a volcano-style query evaluation algorithm, which naturally supports suspension between calls to `next()` since the objects in the query pipeline maintain their own local state.
+
+The algorithm has two phases: setting up the query pipeline, and pulling tuples through the pipeline.
 
 The query pipeline for a query $Q = R_1 (l_1, r_1), ..., R_n (l_n, r_n)$ consists of $n+1$ `Stage`s. Stage $0$ is always an initial stage while stage $i$ for $i>0$ corresponds to the effect of the query atom $R_i (l_i, r_i)$.
 
@@ -260,6 +297,10 @@ Pipeline construction is initiated by `Transaction::StartQuery` when a query is 
           + num_vars $<-$ 0
           + var_idx.clear()
           + *for each* atom *in* query *do*
+            + *if* atom.relation $in.not$ relations *then*
+              + \# Print warning message
+              + *return* StatusCode::FINISHED
+            + *end if*
             + *for each* arg *in* {atom.left, atom.right} *do*
               + *if* arg is Variable *then*
                 + *if* arg.name $in.not$ var_idx *then*
@@ -371,7 +412,7 @@ The second phase of the query algorithm involves repeatedly pulling tuples throu
               + FINISHED $=>$
                 + state $<-$ READY
                 + print "Number of answers: ", num_answers
-                + *return* StatusCode::SUCCESS
+                + *return* StatusCode::FINISHED
             + *end match*
           + *end while*
         + *end procedure*
@@ -401,7 +442,7 @@ These are implemented in volcano style in a mostly straightforward way:
 - `next_group_product` and `next_relation_product` maintain an iterator over the group or relation, respectively, to construct the Cartesian product. For one input tuple, they can produce many output tuples until the iterator is exhausted; then they call `previous.next()` to get a new input tuple and reset the iterator.
 - `next_join_left` and `next_join_right` are similar to `next_group_product`, but the group they iterate over depends on the current input tuple from the previous stage because they must match one attribute against that tuple.
 
-All these methods need to remember to check for read permission from the relevant tuple level locks. The join operations additionally need to acquire the relevant group locks when they move to a new group based on the input tuple from the previous stage.
+All these methods need to remember to check for read permission from the relevant tuple-level locks. The join operations additionally need to acquire the relevant group locks when they move to a new group based on the input tuple from the previous stage.
 
 If any call to `previous.next()` suspends or any lock check/acquisition fails, the method needs to suspend and return `SUSPEND` without advancing the state of the stage, so that when it is resumed, it can retry the same operation from the same point. The stages ensure the state is maintained by not advancing the iterators for products and joins and by using the `call_next` boolean for filters to indicate whether the next call should call `previous.next()` or not.
 
@@ -420,17 +461,17 @@ We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_produ
               + *match* previous.next()
                 + OK $=>$
                   + group $<-$ rel.l_to_r_index[channel[var_idx]]
-                  + group_iter $<-$ group.tuples.begin()
+                  + group_iter $<-$ group.begin()
                   + tx.acquire(group.lock, SHARED) \# never fails
                   + group_iter_valid $<-$ true
                 + other $=>$ *return* other
               + *end match*
             + *end if*
             +
-            + *while* group_iter $!=$ group.tuples.end() *do*
+            + *while* group_iter $!=$ group.end() *do*
               + tp $<-$ group_iter.second
               + *if* $not$ tx.get_read_permit(tp.lock) *then* *return* SUSPEND
-              + group_iter $<-$ group_iter + 1
+              + group_iter $<-$ group_iter.advance()
               + *if* tp.alive *then*
                 + channel[var2_idx] $<-$ tp.right
                 + *return* OK
@@ -443,24 +484,24 @@ We show pseudocode for `Stage::next_relation_filter()`, `Stage::next_group_produ
         + *procedure* Stage::NextGroupProduct() $->$ PipelineStatus
           + *loop*
             + *if* num_input_vars = 0 *then*
-              + \# expected to be in group.tuples.begin() when set up
+              + \# expected to be in group.begin() when set up
               + \# just 1 output tuple per group tuple
               + *match* previous.next()
                 + OK $=>$
-                  + *if* group_iter = group.tuples.end() *then* *return* FINISHED
+                  + *if* group_iter = group.end() *then* *return* FINISHED
                 + other $=>$ *return* other
               + *end match*
-            + *else if* group_iter = group.tuples.end() *then*
-              + \# expected to be in group.tuples.end() when set up
+            + *else if* group_iter = group.end() *then*
+              + \# expected to be in group.end() when set up
               + *match* previous.next()
-                + OK $=>$ group_iter $<-$ group.tuples.begin()
+                + OK $=>$ group_iter $<-$ group.begin()
                 + other $=>$ *return* other
               + *end match*
             + *end if*
             +
             + tp $<-$ group_iter.second
             + *if* $not$ tx.get_read_permit(tp.lock) *then* *return* SUSPEND
-            + group_iter $<-$ group_iter + 1
+            + group_iter $<-$ group_iter.advance()
             + *if* tp.alive *then*
               + *if* left_is_const *then* channel[var_idx] $<-$ tp.right
               + *else* channel[var_idx] $<-$ tp.left
@@ -496,9 +537,11 @@ An alternative stage design is to use inheritance and a separate class for each 
 A completely different approach would be an eager, set-at-a-time query evaluation algorithm. We chose not to use it because it would likely have worse memory performance (due to materialising large intermediate results) and is less natural to combine with suspension/resume semantics.
 
 == d & e
-We use a single algorithm for both adding and deleting, with only a difference in the `new_alive` parameter. An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, as many relevant locks as possible are put into `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).
+We use a single algorithm for both adding and deleting, with the `new_alive` parameter set to `true` for additions and `false` for deletions.
 
-Furthermore, we take note to avoid creating any new Datatuple objects within the relation if the transaction is not permitted by predicate locks, ensuring that the containers that suspended transactions might hold iterators to do not get modified.
+An important design consideration is that when a transaction fails either a lock permission check or a lock acquisition, as many relevant locks as possible are put into `required_locks`. This helps ensure deadlocks are detected as early as possible (without needing to resume transactions that cannot make meaningful progress).
+
+Furthermore, we take care to avoid creating any new `DataTuple` objects within the relation if the transaction is not permitted by predicate locks, ensuring that containers to which suspended transactions may hold iterators are not modified.
 
 We also store the original tuple values to allow rollbacks.
 
@@ -511,8 +554,8 @@ We also store the original tuple values to allow rollbacks.
       #pseudocode-list[
         + *procedure* Relation::edit_tuple(tx: &Transaction, left: uint32_t, right: uint32_t,\  `         ` new_alive: bool) $->$ boolean
           + *if* $not$ permitted_by_pred_locks(tx.tid, left, right) *then*
-           + insert_required_locks_for_edit(tx, left, right)
-           + *return* false
+            + insert_required_locks_for_edit(tx, left, right)
+            + *return* false
           + *end if*
           + tp $<-$ get_tuple(left, right) \# creates the tuple if it doesn't exist
           + *if* tx.acquire(tp->lock, EXCLUSIVE) *then*
@@ -527,7 +570,7 @@ We also store the original tuple values to allow rollbacks.
             + *return* false
           + *end if*
         + *end procedure*
-        + *procedure* Relation::permitted_by_locks(tx_id: TID, left: uint32_t, right: uint32_t) \ `          `$->$ boolean
+        + *procedure* Relation::permitted_by_pred_locks(tx_id: TID, left: uint32_t, right: uint32_t) \ `          `$->$ boolean
           + *if* $not$ whole_rel_lock.permits_edit(tx_id) *then* *return* false
           + *if* left = right *and* $not$ diagonal_index.lock.permits_edit(tx_id) *then* *return* false
           + *if* $not$ l_to_r_index[left].lock.permits_edit(tx_id) *then* *return* false
@@ -561,14 +604,14 @@ On commit, we first ensure that the transaction is in the `READY` state and then
         + *procedure* Transaction::commit() $->$ StatusCode
           + *if* state $!=$ READY *then*
             + print("ERROR: Trying to commit a transaction that is not ready.")
-            + *return* StatusCode::SUCCESS
+            + *return* StatusCode::FINISHED
           + *end if*
 
           + *for* lock *in* held_locks *do*
             + lock.release(tid)
           + *end for*
           + held_locks.clear()
-          + *return* StatusCode::SUCCESS
+          + *return* StatusCode::FINISHED
         + *end procedure*
       ]
     ]
@@ -576,7 +619,7 @@ On commit, we first ensure that the transaction is in the `READY` state and then
 )<CommitAlgorithm>
 
 == g
-On rollback, we restore original tuple values and release all held locks.
+On rollback, we restore original tuple values and release all held locks. Note that unlike commit, we do not require the transaction to be in the `READY` state since we may need to roll back transactions that are currently suspended and waiting for locks.
 
 #algorithm-figure(
   "Rollback Algorithm",
@@ -593,12 +636,17 @@ On rollback, we restore original tuple values and release all held locks.
             + lock.release(tid)
           + *end for*
           + held_locks.clear()
-          + *return* StatusCode::SUCCESS
+          + *return* StatusCode::FINISHED
         + *end procedure*
       ]
     ]
   },
 )<RollbackAlgorithm>
+
+= 2
+My implementation was developed on a laptop with a `11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz`.
+
+I developed it on NixOS with GCC `15.2.0` and confirmed that it compiles correctly on Ubuntu `24.04.4` with GCC `15.2.0-14ubuntu1~24~ppa1` via a Github Actions workflow using the `compile_nocmake.sh` script.
 
 = 3
 == a
@@ -664,7 +712,7 @@ On rollback, we restore original tuple values and release all held locks.
 ]
 
 == b
-The results show that this implementation is better optimised for query-heavy workloads than for write-heavy workloads. This is expected: edits require acquiring more locks, updating each transaction's `held_locks`, and maintaining multiple group indices. By contrast, queries usually require fewer lock acquisitions because predicate locks can cover many tuples, and `SLock`s are always acquirable in shared mode.
+The results show that this implementation is better optimised for query-heavy workloads than for write-heavy workloads as query evaluation times are much lower than data import times. This is expected: edits require acquiring more locks, updating each transaction's `held_locks`, and maintaining multiple group indices. Importing many tuples at once also leads to multiple memory allocations which take time. By contrast, queries usually require fewer lock acquisitions because predicate locks can cover many tuples, and `SLock`s are always acquirable in shared mode.
 
 There is a trade-off between these behaviours by increasing or decreasing index coverage. For example, we could add a whole-relation index, or create group locks without corresponding group indices. The current design is a balanced choice that avoids obviously poor performance for common query patterns.
 
@@ -672,12 +720,12 @@ In terms of scalability with respect to the number of open transactions, perform
 
 The main scalability bottleneck appears once contention rises. More open transactions means larger lock-holder sets and more required-lock edges, and each suspension triggers a DFS deadlock check over that waits-for graph (cost proportional to $V + E$). In addition, coarse predicates such as $R(x, y)$ take relation-level shared locks, which can block many edits at once. So the system scales well in low-conflict workloads, but degrades under high-conflict workloads because more time is spent suspended or in deadlock handling rather than doing useful work; this is the expected trade-off for serializable isolation.
 
-Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for the group indices, held locks, and log of original tuple values#footnote[We don't replace the standard library hash table that maps left/right values to their groups since our implementations use buckets of keys and values. Large values like groups are bad for cache locality.]. While these are better than the separate chaining hash tables provided by the C++ standard library, they are not as optimised as those from third-party libraries like Abseil. The flame graph below shows that a large amount of time is spent in hash table operations, so using more optimised hash tables would likely lead to significant performance improvements.
+Finally, we note that hash-table layout is a major optimisation point in this project. We therefore use custom open-addressing hash tables with linear probing for the group indices, held locks, and log of original tuple values#footnote[We don't replace the standard library hash table that maps left/right values to their groups since our implementations use buckets of keys and values. Large values like groups are bad for cache locality.]. While these are better than the separate chaining hash tables provided by the C++ standard library, they are not as optimised as those from third-party libraries like Google's Abseil. The flame graph below shows that a large amount of time is spent in hash table operations, so using more optimised hash tables would likely lead to significant performance improvements.
 
 #figure(
   caption: [
     Flame Graph for the benchmarking procedure \
-    Shows that a significant amount of time is still is spent in hash table operations.],
+    Shows that a significant amount of time is still spent in hash table operations.],
 )[
   #image("img/flame_graph_cropped.png")
 ] <FlameGraphImg>

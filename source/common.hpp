@@ -4,7 +4,6 @@
 #include <print>
 #include <string>
 #include <variant>
-#include <vector>
 
 constexpr bool enable_trace = false;
 
@@ -21,7 +20,7 @@ class Transaction;
 using TID = std::string;
 using RelName = std::string;
 enum class StatusCode {
-  SUCCESS,
+  FINISHED,
   SUSPENDED,
 };
 
@@ -66,11 +65,6 @@ enum class PipelineStatus {
   OK,
   SUSPEND,
   FINISHED,
-};
-
-struct Channel {
-  PipelineStatus status{PipelineStatus::OK};
-  std::vector<uint32_t> data;
 };
 
 template <typename... Args>

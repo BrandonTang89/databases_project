@@ -1,20 +1,24 @@
 classDiagram
 
     class Relation{
-      +tuples: StableVector~DataTuple~
+      -tuples: StableVector~DataTuple~
       +l_to_r_index: Map~u32, Group~
       +r_to_l_index: Map~u32, Group~
       +diagonal_index: Group
       +whole_rel_lock: SLock
 
+      +begin() type[tuples]::iterator
+      +end() type[tuples]::iterator
       +edit_tuple(tx: &Transaction, left: u32, right: u32, alive: boolean) boolean
       +get_tuple(left: u32, right: u32) *DataTuple
     }
     class Group{
-      +tuples: Map~u64, DataTuple~
+      -tuples: Map~u64, DataTuple~
       +lock: SLock
 
       -make_key(left: u32, right: u32) u64
+      +begin() type[tuples]::iterator
+      +end() type[tuples]::iterator
       +insert(tp: *DataTuple) unit
       +find(left: u32, right: u32) *DataTuple
     }

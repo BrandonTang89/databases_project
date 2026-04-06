@@ -70,7 +70,7 @@ StatusCode Transaction::resume(bool silent_resume) {
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
   }
-  return StatusCode::SUCCESS;
+  return StatusCode::FINISHED;
 }
 
 StatusCode Transaction::start_edit(Relation *rel, const std::string &csv_file,
@@ -79,7 +79,7 @@ StatusCode Transaction::start_edit(Relation *rel, const std::string &csv_file,
     std::println(out, "ERROR: transaction is not in READY state.");
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
-    return StatusCode::SUCCESS;
+    return StatusCode::FINISHED;
   }
   command_start_time = std::chrono::high_resolution_clock::now();
   incoming_tuples = parse_csv_file(csv_file);
@@ -105,7 +105,7 @@ StatusCode Transaction::resume_edit() {
                       "EXECUTING_DELETE state.");
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
-    return StatusCode::SUCCESS;
+    return StatusCode::FINISHED;
   }
 
   bool is_adding = (state == TransactionState::EXECUTING_ADD);
@@ -131,7 +131,7 @@ StatusCode Transaction::resume_edit() {
   print_time_taken();
 
   state = TransactionState::READY;
-  return StatusCode::SUCCESS;
+  return StatusCode::FINISHED;
 }
 
 StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
@@ -139,7 +139,7 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
     std::println(out, "ERROR: transaction is not in READY state.");
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
-    return StatusCode::SUCCESS;
+    return StatusCode::FINISHED;
   }
   command_start_time = std::chrono::high_resolution_clock::now();
 
@@ -150,7 +150,7 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
   for (const auto &atom : query) {
     if (relations.find(atom.relation) == relations.end()) {
       std::println(out, "ERROR: relation {} does not exist.", atom.relation);
-      return StatusCode::SUCCESS;
+      return StatusCode::FINISHED;
     }
     for (const auto &arg : {atom.left, atom.right}) {
       if (std::holds_alternative<Variable>(arg)) {
@@ -184,7 +184,7 @@ StatusCode Transaction::resume_query() {
     std::println(out, "ERROR: transaction is not in EXECUTING_QUERY state.");
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
-    return StatusCode::SUCCESS;
+    return StatusCode::FINISHED;
   }
 
   while (true) {
@@ -206,7 +206,7 @@ StatusCode Transaction::resume_query() {
       state = TransactionState::READY;
       std::println(out, "Number of answers: {}", num_answers);
       print_time_taken();
-      return StatusCode::SUCCESS;
+      return StatusCode::FINISHED;
     }
   }
 }
@@ -216,7 +216,7 @@ StatusCode Transaction::commit() {
     std::println(out, "ERROR: transaction is not in READY state.");
     std::println(out, "Current state: {}",
                  tx_state_names.at(static_cast<size_t>(state)));
-    return is_suspended() ? StatusCode::SUSPENDED : StatusCode::SUCCESS;
+    return is_suspended() ? StatusCode::SUSPENDED : StatusCode::FINISHED;
   }
   state = TransactionState::COMMITTED;
   command_start_time = std::chrono::high_resolution_clock::now();
@@ -224,7 +224,7 @@ StatusCode Transaction::commit() {
   std::println(out, "Transaction {} was committed.", tid);
 
   print_time_taken();
-  return StatusCode::SUCCESS;
+  return StatusCode::FINISHED;
 }
 
 StatusCode Transaction::rollback(bool silent_abort) {
@@ -244,5 +244,5 @@ StatusCode Transaction::rollback(bool silent_abort) {
     std::println(out, "Transaction {} was rolled back.", tid);
     print_time_taken();
   }
-  return StatusCode::SUCCESS;
+  return StatusCode::FINISHED;
 }

@@ -59,10 +59,10 @@ Stage::Stage(size_t stage_index, Transaction &trx)
 
         if (num_input_vars == 0) {
           // produces the first tuples
-          rel_iter = rel->tuples.begin();
+          rel_iter = rel->begin();
         } else {
           // otherwise expect to start from the back...
-          rel_iter = rel->tuples.end();
+          rel_iter = rel->end();
         }
 
       } else if (var_idx >= num_input_vars) {
@@ -98,10 +98,10 @@ void Stage::group_setup() {
 
     if (num_input_vars == 0) {
       // produces the first tuples
-      group_iter = group->tuples.begin();
+      group_iter = group->begin();
     } else {
       // otherwise expect to start from the back...
-      group_iter = group->tuples.end();
+      group_iter = group->end();
     }
   } else {
     type = StageType::GROUP_FILTER;
@@ -204,17 +204,17 @@ PipelineStatus Stage::next_group_product() {
       }
 
       // Need to produce the first tuple to kick off the pipeline
-      if (group_iter == group->tuples.end()) {
+      if (group_iter == group->end()) {
         return PipelineStatus::FINISHED;
       }
-    } else if (group_iter == group->tuples.end()) {
+    } else if (group_iter == group->end()) {
       // The first iteration should start with the group_iter at the end
       // pull in a new tuple
       PipelineStatus st = previous->next();
       if (st != PipelineStatus::OK) {
         return st;
       }
-      group_iter = group->tuples.begin();
+      group_iter = group->begin();
     }
 
     DataTuple *tp = group_iter->second;
@@ -267,17 +267,17 @@ PipelineStatus Stage::next_relation_product() {
       }
 
       // Need to produce the first tuple to kick off the pipeline
-      if (rel_iter == rel->tuples.end()) {
+      if (rel_iter == rel->end()) {
         return PipelineStatus::FINISHED;
       }
-    } else if (rel_iter == rel->tuples.end()) {
+    } else if (rel_iter == rel->end()) {
       // The first iteration should start with the rel_iter at the end
       // pull in a new tuple
       PipelineStatus st = previous->next();
       if (st != PipelineStatus::OK) {
         return st;
       }
-      rel_iter = rel->tuples.begin();
+      rel_iter = rel->begin();
     }
 
     DataTuple *tp = &*rel_iter;
@@ -303,14 +303,14 @@ PipelineStatus Stage::next_join_left() {
         return st;
       }
       group = &rel->l_to_r_index[(*channel)[var_idx]];
-      group_iter = group->tuples.begin();
+      group_iter = group->begin();
       tx.acquire(group->lock, LockMode::SHARED);
       // acquire never fails beacuse its on an SLock
 
       group_iter_valid = true;
     }
 
-    while (group_iter != group->tuples.end()) {
+    while (group_iter != group->end()) {
       DataTuple *tp = group_iter->second;
       if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
@@ -336,14 +336,14 @@ PipelineStatus Stage::next_join_right() {
         return st;
       }
       group = &rel->r_to_l_index[(*channel)[var2_idx]];
-      group_iter = group->tuples.begin();
+      group_iter = group->begin();
       tx.acquire(group->lock, LockMode::SHARED);
       // acquire never fails beacuse its on an SLock
 
       group_iter_valid = true;
     }
 
-    while (group_iter != group->tuples.end()) {
+    while (group_iter != group->end()) {
       DataTuple *tp = group_iter->second;
       if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
