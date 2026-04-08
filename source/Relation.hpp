@@ -13,7 +13,7 @@ public:
   std::unordered_map<uint32_t, Group> l_to_r_index;
   std::unordered_map<uint32_t, Group> r_to_l_index;
   Group diagonal_index; // index for tuples where left == right
-  SLock whole_rel_lock{};
+  SLock whole_rel_lock;
 
   /**
    * returns true on success, false if the transaction cannot acquire the
@@ -46,8 +46,9 @@ private:
    * Checks if the transaction is permitted to modify the tuple with respect to
    * the group locks.
    */
-  bool check_group_locks(const TID &tid, uint32_t left, uint32_t right,
-                         Group &left_group, Group &right_group);
+  [[nodiscard]] bool check_group_locks(const TID &tid, uint32_t left,
+                                       uint32_t right, const Group &left_group,
+                                       const Group &right_group) const;
 
   /**
    * Adds the group locks that the transaction would need to pass to edit the

@@ -1,10 +1,8 @@
 {
-    "git.enabled": false,
-    "cSpell.words": [
-        "CMYK",
-        "hline",
-        "rowspan",
-        "usize",
-        "vars"
-    ]
+  "git.enabled": false,
+  "cSpell.words": ["CMYK", "hline", "rowspan", "usize", "vars"],
+  "clangd.arguments": [
+    "--compile-commands-dir=${workspaceFolder}/build/debug",
+    "--clang-tidy"
+  ]
 }

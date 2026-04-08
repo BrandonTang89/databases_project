@@ -7,7 +7,7 @@
 #include <string>
 
 bool Database::begin_transaction(const TID &tid) {
-  if (transactions.find(tid) != transactions.end()) {
+  if (transactions.contains(tid)) {
 
     std::println(out, "ERROR: transaction {} already exists.", tid);
     return false; // Transaction with this TID already exists
@@ -45,12 +45,12 @@ bool Database::rollback_transaction(const TID &tid, bool silent_abort) {
 bool Database::add_data(const TID &tid, const RelName &rel_name,
                         const std::string &csv_file) {
   auto it = transactions.find(tid);
-  if (it == transactions.end()) {
+  if (!transactions.contains(tid)) {
     std::println(out, "ERROR: transaction {} does not exist.", tid);
     return false;
   }
 
-  if (relations.find(rel_name) == relations.end()) {
+  if (!relations.contains(rel_name)) {
     std::println(out, "Relation {} was created.", rel_name);
   }
 
@@ -70,7 +70,7 @@ bool Database::delete_data(const TID &tid, const RelName &rel_name,
     return false;
   }
 
-  if (relations.find(rel_name) == relations.end()) {
+  if (!relations.contains(rel_name)) {
     std::println(out, "ERROR: relation {} does not exist.", rel_name);
     return false;
   }

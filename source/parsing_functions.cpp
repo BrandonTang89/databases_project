@@ -31,7 +31,7 @@ std::optional<QueryArg> parse_term(std::string_view sv) {
 
   // Must be an identifier: letters, digits, underscores.
   for (char c : sv)
-    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+    if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_')
       return std::nullopt;
 
   return Variable{std::string(sv)};
@@ -62,7 +62,7 @@ std::optional<QueryAtom> parse_atom(std::string_view sv,
     return std::nullopt;
   }
   for (char c : rel_sv)
-    if (!std::isalnum(static_cast<unsigned char>(c))) {
+    if (std::isalnum(static_cast<unsigned char>(c)) == 0) {
       err_msg = "invalid relation name: " + std::string(rel_sv);
       return std::nullopt;
     }
@@ -103,7 +103,7 @@ parse_query(const std::string &body, std::string &err_msg) {
     else if (c == ')')
       --depth;
     else if ((c == ',' && depth == 0) || c == '\0') {
-      std::string_view token(body.data() + start, i - start);
+      std::string_view token = std::string_view(body).substr(start, i - start);
       // Skip blank tokens (trailing comma etc.)
       bool blank = true;
       for (char ch : token)

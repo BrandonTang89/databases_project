@@ -19,13 +19,13 @@ class Transaction;
 
 using TID = std::string;
 using RelName = std::string;
-enum class StatusCode {
+enum class StatusCode : uint8_t {
   FINISHED,
   SUSPENDED,
 };
 
-enum class LockMode { SHARED, EXCLUSIVE };
-enum class TransactionState {
+enum class LockMode : uint8_t { SHARED, EXCLUSIVE };
+enum class TransactionState : uint8_t {
   READY,
   EXECUTING_QUERY,
   EXECUTING_ADD,
@@ -61,7 +61,7 @@ struct QueryAtom {
   }
 };
 
-enum class PipelineStatus {
+enum class PipelineStatus : uint8_t {
   OK,
   SUSPEND,
   FINISHED,

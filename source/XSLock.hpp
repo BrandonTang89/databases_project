@@ -15,7 +15,7 @@ public:
   XSLock() = default;
   virtual ~XSLock() override = default;
 
-  bool permits_read(const TID &tid) const {
+  [[nodiscard]] bool permits_read(const TID &tid) const {
     if (held_exclusively_) {
       return is_held_by(tid);
     } else {
@@ -23,7 +23,7 @@ public:
     }
   }
 
-  virtual bool acquire(const TID &tid, LockMode mode) override {
+  bool acquire(const TID &tid, LockMode mode) override {
     if (mode == LockMode::EXCLUSIVE) {
       if (holder_count() >= 2) {
         // Exclusive mode acquisition fails if the lock is held by multiple
@@ -50,7 +50,7 @@ public:
     assert(false); // unreachable
   }
 
-  virtual void release(const TID &tid) override {
+  void release(const TID &tid) override {
     // Remove tid from lock_holders_.
     assert(is_held_by(tid));
     lock_holders_.erase(tid);
@@ -60,14 +60,16 @@ public:
     }
   }
 
-  bool is_held_by(const TID &tid) const {
-    return lock_holders_.find(tid) != lock_holders_.end();
+  [[nodiscard]] bool is_held_by(const TID &tid) const {
+    return lock_holders_.contains(tid);
   }
 
-  size_t holder_count() const { return lock_holders_.size(); }
-  bool is_held_exclusively() const override { return held_exclusively_; }
+  [[nodiscard]] size_t holder_count() const { return lock_holders_.size(); }
+  [[nodiscard]] bool is_held_exclusively() const override {
+    return held_exclusively_;
+  }
 
-  const std::flat_set<TID> &current_holders() const override {
+  [[nodiscard]] const std::flat_set<TID> &current_holders() const override {
     return lock_holders_;
   }
 };

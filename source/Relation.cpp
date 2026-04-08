@@ -5,7 +5,8 @@
 #include "Transaction.hpp"
 
 bool Relation::check_group_locks(const TID &tid, uint32_t left, uint32_t right,
-                                 Group &left_group, Group &right_group) {
+                                 const Group &left_group,
+                                 const Group &right_group) const {
   // Relation locks checked once for each edit batch for efficiency, so we don't
   // check it here
   if (left == right) {
@@ -82,7 +83,7 @@ DataTuple *Relation::get_tuple(uint32_t left, uint32_t right) {
 DataTuple *Relation::ensure_tuple(uint32_t left, uint32_t right) {
   Group &group = l_to_r_index[left];
   DataTuple *tp = group.find(left, right);
-  if (!tp) {
+  if (tp == nullptr) {
     // tuple does not exist, so we need to add it
     tp = tuples.emplace(left, right);
     group.insert(tp);

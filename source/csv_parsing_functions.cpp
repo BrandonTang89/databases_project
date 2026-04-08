@@ -20,10 +20,11 @@ ParseResult parse_csv_line(const std::string &line) {
   std::string_view rhs = sv.substr(comma + 1);
 
   // Reject anything with a second comma.
-  if (rhs.find(',') != std::string_view::npos)
+  if (rhs.contains(','))
     return {false, 0, 0};
 
-  uint32_t left{}, right{};
+  uint32_t left{};
+  uint32_t right{};
   auto [lend, lerr] =
       std::from_chars(lhs.data(), lhs.data() + lhs.size(), left);
   if (lerr != std::errc{} || lend != lhs.data() + lhs.size())

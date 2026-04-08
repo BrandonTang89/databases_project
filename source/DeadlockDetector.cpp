@@ -12,8 +12,8 @@ bool DeadlockDetector::dfs_tx(const TID &tid) {
       return false;
   }
   visited_tx.emplace(tid, VisitState::VISITING);
-  Transaction &tx = transactions.at(tid);
-  for (Lock *lock : tx.required_locks) {
+  const Transaction &tx = transactions.at(tid);
+  for (const Lock *const lock : tx.required_locks) {
     for (const TID &holding_tid : lock->current_holders()) {
       if (holding_tid == tid) {
         continue; // Don't consider locks held by the transaction itself

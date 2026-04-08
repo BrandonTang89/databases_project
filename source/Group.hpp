@@ -35,7 +35,7 @@ public:
 
 private:
   TupleContainer tuples;
-  inline uint64_t make_key(uint32_t left, uint32_t right) const {
+  static uint64_t make_key(uint32_t left, uint32_t right) {
     return (static_cast<uint64_t>(left) << 32) | right;
   }
 };

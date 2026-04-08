@@ -157,8 +157,8 @@ public:
     return ptr;
   }
 
-  size_t size() const { return size_; }
-  bool empty() const { return size_ == 0; }
+  [[nodiscard]] size_t size() const { return size_; }
+  [[nodiscard]] bool empty() const { return size_ == 0; }
 
 private:
   void ensure_space() {

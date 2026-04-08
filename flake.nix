@@ -33,6 +33,7 @@
             flamegraph
             mermaid-cli
             mupdf-headless
+            cppcheck
             (writeShellScriptBin "build" ''
               set -eu
 

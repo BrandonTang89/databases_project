@@ -39,7 +39,7 @@ int main() {
 
   // Only print a prompt when input comes from a terminal so that piped /
   // redirected test scripts produce clean output.
-  const bool interactive = isatty(fileno(stdin));
+  const bool interactive = isatty(fileno(stdin)) != 0;
 
   while (true) {
     if (interactive)

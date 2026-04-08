@@ -117,7 +117,7 @@ public:
   iterator begin() { return iterator(this, 0); }
   iterator end() { return iterator(this, buckets.size()); }
 
-  size_t size() const { return size_; }
+  [[nodiscard]] size_t size() const { return size_; }
 
   void clear() {
     for (K &bucket : buckets) {

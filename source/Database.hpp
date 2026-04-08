@@ -21,7 +21,7 @@ private:
   void on_control(const TID &tid, StatusCode status);
 
 public:
-  Database(std::ostream &output_stream = std::cout) : out(output_stream) {}
+  explicit Database(std::ostream &output_stream = std::cout) : out(output_stream) {}
 
   bool begin_transaction(const TID &tid);
 

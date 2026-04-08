@@ -51,7 +51,7 @@ class Transaction {
   std::vector<uint32_t> query_channel;        // |num_vars|
   size_t num_answers{0};
 
-  bool is_suspended() const;
+  [[nodiscard]] bool is_suspended() const;
   void print_time_taken() const;
 
   // Stores the original alive status of the tuple if it hasn't been stored
@@ -76,7 +76,7 @@ public:
 
   // Requires the transaction to be in READY state.
   StatusCode start_edit(Relation *rel, const std::string &csv_file,
-                        bool newAlive);
+                        bool new_alive);
 
   // Requires the transaction to be in READY state
   StatusCode start_query(std::vector<QueryAtom> query_atoms);
@@ -96,5 +96,5 @@ public:
    */
   void clear_required_locks() { required_locks.clear(); }
 
-  const TID &get_tid() const { return tid; }
+  [[nodiscard]] const TID &get_tid() const { return tid; }
 };

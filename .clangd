@@ -1,2 +1,15 @@
 Documentation:
   CommentFormat: Markdown
+Diagnostics:
+  ClangTidy:
+    Add: [bugprone-*, performance-*, readability-*, modernize-*]
+    Remove: [readability-identifier-length, 
+             bugprone-easily-swappable-parameters, 
+             readability-else-after-return,
+             readability-braces-around-statements,
+             readability-magic-numbers,
+             readability-function-cognitive-complexity,
+             bugprone-branch-clone,
+             readability-redundant-member-init,
+             modernize-use-trailing-return-type,
+             modernize-use-designated-initializers,]

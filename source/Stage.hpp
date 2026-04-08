@@ -34,7 +34,7 @@ public:
 
   Stage(size_t stage_index, Transaction &trx);
 
-  enum class StageType {
+  enum class StageType: uint8_t {
     INITIAL,
     CONST_CONST,
     GROUP_FILTER,

@@ -48,18 +48,18 @@ template <> struct hash<uint64_t> {
     return static_cast<size_t>(splitmix64(key));
   }
 
-  uint64_t empty() const noexcept {
+  static uint64_t empty() noexcept {
     return std::numeric_limits<uint64_t>::max();
   }
 
-  uint64_t tombstone() const noexcept {
+  static uint64_t tombstone() noexcept {
     return std::numeric_limits<uint64_t>::max() - 1;
   }
 };
 
 template <typename T> struct hash<T *> {
   size_t operator()(T *const &key) const noexcept {
-    const std::uintptr_t raw = reinterpret_cast<std::uintptr_t>(key);
+    const auto raw = reinterpret_cast<std::uintptr_t>(key);
     if constexpr (sizeof(std::uintptr_t) == sizeof(uint64_t)) {
       return static_cast<size_t>(splitmix64(static_cast<uint64_t>(raw)));
     }

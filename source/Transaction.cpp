@@ -15,10 +15,9 @@ bool Transaction::acquire(Lock &lock, LockMode mode) {
   if (lock.acquire(tid, mode)) {
     held_locks.insert(&lock);
     return true;
-  } else {
-    required_locks.insert(&lock);
-    return false;
   }
+  required_locks.insert(&lock);
+  return false;
 }
 
 bool Transaction::get_read_permit(XSLock &lock) {
@@ -59,17 +58,18 @@ StatusCode Transaction::resume(bool silent_resume) {
       std::println(out, "Resuming transaction {}.", tid);
     }
     return resume_query();
-  } else if (state == TransactionState::EXECUTING_ADD ||
-             state == TransactionState::EXECUTING_DELETE) {
+  }
+  if (state == TransactionState::EXECUTING_ADD ||
+      state == TransactionState::EXECUTING_DELETE) {
     if (!silent_resume) {
       std::println(out, "Resuming transaction {}.", tid);
     }
     return resume_edit();
-  } else {
-    std::println(out, "ERROR: transaction is not suspended");
-    std::println(out, "Current state: {}",
-                 tx_state_names.at(static_cast<size_t>(state)));
   }
+  std::println(out, "ERROR: transaction is not suspended");
+  std::println(out, "Current state: {}",
+               tx_state_names.at(static_cast<size_t>(state)));
+
   return StatusCode::FINISHED;
 }
 
@@ -148,14 +148,14 @@ StatusCode Transaction::start_query(std::vector<QueryAtom> query) {
   size_t num_vars = 0;
   var_idx.clear();
   for (const auto &atom : query) {
-    if (relations.find(atom.relation) == relations.end()) {
+    if (!relations.contains(atom.relation)) {
       std::println(out, "ERROR: relation {} does not exist.", atom.relation);
       return StatusCode::FINISHED;
     }
     for (const auto &arg : {atom.left, atom.right}) {
       if (std::holds_alternative<Variable>(arg)) {
         const std::string &var_name = std::get<Variable>(arg).name;
-        if (var_idx.find(var_name) == var_idx.end()) {
+        if (!var_idx.contains(var_name)) {
           var_idx[var_name] = num_vars++;
         }
       }

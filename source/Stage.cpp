@@ -176,7 +176,7 @@ PipelineStatus Stage::next_group_filter() {
     }
 
     // tp is null if the tuple doesn't exist in this group at all
-    if (!tp) {
+    if (tp == nullptr) {
       continue;
     }
     if (!tx.get_read_permit(tp->lock)) {
@@ -221,7 +221,7 @@ PipelineStatus Stage::next_group_product() {
     if (!tx.get_read_permit(tp->lock))
       return PipelineStatus::SUSPEND;
 
-    group_iter++;
+    ++group_iter;
     // Skip dead tuples
     if (!tp->alive) {
       continue;
@@ -283,7 +283,7 @@ PipelineStatus Stage::next_relation_product() {
     DataTuple *tp = &*rel_iter;
     if (!tx.get_read_permit(tp->lock))
       return PipelineStatus::SUSPEND;
-    rel_iter++;
+    ++rel_iter;
     if (!tp->alive) {
       // Skip dead (never-inserted or deleted) tuples
       continue;
@@ -315,7 +315,7 @@ PipelineStatus Stage::next_join_left() {
       if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
 
-      group_iter++;
+      ++group_iter;
       // Skip dead tuples
       if (!tp->alive) {
         continue;
@@ -348,7 +348,7 @@ PipelineStatus Stage::next_join_right() {
       if (!tx.get_read_permit(tp->lock))
         return PipelineStatus::SUSPEND;
 
-      group_iter++;
+      ++group_iter;
       // Skip dead tuples
       if (!tp->alive) {
         continue;
